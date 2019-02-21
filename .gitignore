@@ -1,0 +1,6 @@
+# dev files
+dev/*
+*__pycache__
+# duplicate backup files
+*~
+*#*
