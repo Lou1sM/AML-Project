@@ -52,7 +52,7 @@ with tf.variable_scope('end_estimator'):
 s1 = tf.argmax(first_guess_start_points)
 u_s1 = encoded[s1,:,:]
 e1 = tf.argmax(first_guess_start_points)
-u_e1 = encoded[s1,:,:]
+u_e1 = encoded[e1,:,:]
 
 # Feed these guesses back to lstm to make next guess, note this
 # will reuse the weights from from above because the graph node
@@ -77,7 +77,7 @@ with tf.variable_scope('end_estimator'):
 s2 = tf.argmax(first_guess_start_points)
 u_s2 = encoded[s2,:,:]
 e2 = tf.argmax(first_guess_start_points)
-u_e2 = encoded[s2,:,:]
+u_e2 = encoded[e2,:,:]
     
 
 # ..repeat as many times as we want to iterate, the authors say
@@ -116,9 +116,9 @@ writer = tf.summary.FileWriter("summaries/")
 writer.add_graph(tf.get_default_graph())
 
 
-# Define the session, which will use defaul_graph, ie the
+# Define the session, which will use default_graph, ie the
 # graph that contains all the nodes defined in the current
-# script (I think that's what default_graph is anyway
+# script (I think that's what default_graph is anyway)
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
