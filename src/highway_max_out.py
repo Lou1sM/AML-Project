@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 from utils import weight_variable, bias_variable
 
-
 h_size=200
 pool_size=16
 # Shape=(batch_size, 5*hidden_state, document_length)
@@ -48,10 +47,3 @@ if __name__ == "__main__":
     hmn_out = HMN(dummy, tf.random.uniform([32,200]), tf.random.uniform([32,2*h_size]), tf.random.uniform([32,2*h_size]))
 
     print('output shape:', hmn_out.get_shape())
-
-
-
-
-
-    
-    
