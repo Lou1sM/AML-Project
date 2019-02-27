@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 from utils import weight_variable, bias_variable
 
-
 h_size=200
 pool_size=16
 # Shape=(batch_size, 5*hidden_state, document_length)
@@ -49,9 +48,5 @@ if __name__ == "__main__":
 
     print('output shape:', hmn_out.get_shape())
 
-
-
-
-
-    
-    
+    sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+    print(sess.run(hmn_out))

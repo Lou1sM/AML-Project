@@ -108,5 +108,3 @@ def time_format(x):
         x -= 60*minutes
         x = round(x, 1)
         return str(hours) + 'h' + str(minutes) + 'm' + str(x) + 's'
-                                                                
-
