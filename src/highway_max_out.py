@@ -47,3 +47,6 @@ if __name__ == "__main__":
     hmn_out = HMN(dummy, tf.random.uniform([32,200]), tf.random.uniform([32,2*h_size]), tf.random.uniform([32,2*h_size]))
 
     print('output shape:', hmn_out.get_shape())
+
+    sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+    print(sess.run(hmn_out))

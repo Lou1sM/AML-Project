@@ -12,9 +12,9 @@ import ciprian_data_prep_script
 
 # Learning Parameters
 num_epochs = 100
-num_batches = 32
+num_batches = 64
 learning_rate = 1e-3
-dropout = 0
+dropout = 0.3  # The authors "apply 0.3 dropout on the question and document encodings"
 
 # Architecture Parameters
 hidden_state_size = 200
@@ -70,11 +70,11 @@ for i in range(4):
         training=True)
     h = time_major_h[0, :, :]
 
-    # Make the first estimation of start- and end-points. Define the
+    # Make an estimation of start- and end-points. Define the
     # set of graph nodes for the HMN twice in two different namespaces
     # so that two copies are created and they can be trained separately
     with tf.variable_scope('start_estimator'):
-        first_guess_start_points = highway_max_out.HMM(
+        alphas = highway_max_out.HMM(
             current_words=encoded,
             lstm_hidden_state=h,
             prev_start_point_guess=u_s,
@@ -82,39 +82,43 @@ for i in range(4):
         )
 
     with tf.variable_scope('end_estimator'):
-        first_guess_end_points = highway_max_out.HMM(
+        betas = highway_max_out.HMM(
             current_words=encoded,
             lstm_hidden_state=h,
             prev_start_point_guess=u_s,
             prev_end_point_guess=u_e
         )
 
-    s = tf.argmax(first_guess_start_points)
+    s = tf.argmax(alphas)
     u_s = encoded[s, :, :]
-    e = tf.argmax(first_guess_start_points)
+    e = tf.argmax(betas)
     u_e = encoded[e, :, :]
 
     # Define loss and optimizer, each guess contributes to loss,
     # even the very first
     s_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
         labels=ground_truth_labels[0],
-        logits=first_guess_start_points
+        logits=alphas
     )
 
     e_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
         labels=ground_truth_labels[1],
-        logits=first_guess_end_points
+        logits=betas
     )
 
     iteration_loss = s_loss + e_loss
 
     loss = iteration_loss if i == 0 else loss + iteration_loss
 
+# Keep track of loss
+tf.summary.scalar('loss', loss)
+
 # Set up learning process
 optimizer = tf.train.AdamOptimizer(learning_rate)  # They don't give learning rate!
 train_step = optimizer.minimize(loss)
 
 # For Tensorboard
+merged = tf.summary.merge_all()
 writer = tf.summary.FileWriter("summaries/")
 writer.add_graph(tf.get_default_graph())
 
@@ -128,6 +132,8 @@ with tf.Session() as sess:
     # This bit will depend on data format, we can also
     # add summaries with 'writer' every so often, for
     # tensorboard loss visualization
-    for _ in range(num_epochs):
+    for i in range(num_epochs):
         for _ in range(num_batches):
-            sess.run(train_step)
+            summary, _ = sess.run([merged, train_step])
+        # currently write summary for each epoch
+        writer.add_summary(summary, i)
