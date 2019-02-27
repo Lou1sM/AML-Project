@@ -3,9 +3,22 @@ import highway_max_out
 import andrei_encoder_script
 import ciprian_data_prep_script
 
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
+parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
+parser.add_argument("--lstm_size", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
+parser.add_argument("--batch_size", default=32, type=int, help="Size of each training batch")
+parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
+ARGS = parser.parse_args()
+
+
+
 # Batches are assumed to span the first dimension of tensors
-# The first start- and end-pointers are assumed to be the start and end of document
-#   (we might consider randomising these)
+# The first start- and end-pointers are assumed to be the start
+# and end of document (we might consider randomising these)
 
 # Global variables
 # We may want to move these to an object and pass it to components
@@ -14,7 +27,8 @@ import ciprian_data_prep_script
 num_epochs = 100
 num_batches = 64
 learning_rate = 1e-3
-dropout = 0.3  # The authors "apply 0.3 dropout on the question and document encodings"
+dropout = 0.3
+# The authors "apply 0.3 dropout on the question and document encodings"
 
 # Architecture Parameters
 hidden_state_size = 200
@@ -29,10 +43,18 @@ hidden_state_size = 200
 # For example:
 input_d_vecs, input_q_vecs, ground_truth_labels = ciprian_data_prep_script.get_data()
 
+# Expecting ground truth labels to be a tuple containing indices
+# of start and end points
+
+dataset = tf.data.Dataset.from_tensor_slices(input_d_vecs, input_q_vecs, ground_truth_labels)
+dataset = dataset.batch(ARGS.batch_size)
+iterator = dataset.make_initializable_iterator()
+
+new_doc_vecs, new_q_vecs, new_ground_truth_labels = iterator.get_next()
 
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
-encoded = andrei_encoder_script.encoder(input_d_vecs, input_q_vecs)
+encoded = andrei_encoder_script.encoder(new_doc_vecs, new_q_vecs)
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
@@ -97,12 +119,12 @@ for i in range(4):
     # Define loss and optimizer, each guess contributes to loss,
     # even the very first
     s_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-        labels=ground_truth_labels[0],
+        labels=new_ground_truth_labels[0],
         logits=alphas
     )
 
     e_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-        labels=ground_truth_labels[1],
+        labels=new_ground_truth_labels[1],
         logits=betas
     )
 
