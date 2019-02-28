@@ -46,7 +46,7 @@ input_d_vecs, input_q_vecs, ground_truth_labels = ciprian_data_prep_script.get_d
 
 # Expecting ground truth labels to be a tuple containing indices
 # of start and end points
-#print("d vecs type:", type(input_d_vecs))
+print("d vecs type:", input_d_vecs)
 dataset = tf.data.Dataset.from_tensor_slices(input_d_vecs)
 dataset = dataset.batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
@@ -156,9 +156,7 @@ with tf.Session() as sess:
     # add summaries with 'writer' every so often, for
     # tensorboard loss visualization
     for i in range(num_epochs):
-
         for _ in range(num_batches):
             summary, _ = sess.run([merged, train_step])
         # currently write summary for each epoch
         writer.add_summary(summary, i)
-
