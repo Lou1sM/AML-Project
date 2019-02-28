@@ -34,7 +34,7 @@ dropout = 0.3
 # Architecture Parameters
 hidden_state_size = 200
 
-'''
+
 # Whatever the format of the data preparation, the output will
 # be a document-length sequence of glove word vectors, and a
 # question-length sequence of the same. Ideally it these would
@@ -47,16 +47,17 @@ input_d_vecs, input_q_vecs, ground_truth_labels = ciprian_data_prep_script.get_d
 # Expecting ground truth labels to be a tuple containing indices
 # of start and end points
 print("d vecs type:", input_d_vecs)
-dataset = tf.data.Dataset.from_tensor_slices(input_d_vecs)
-dataset = dataset.batch(ARGS.batch_size)
+dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
+#dataset = dataset.batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
 
-new_doc_vecs, new_q_vecs, new_ground_truth_labels = iterator.get_next()
+d, q, a = iterator.get_next()
+print(d.get_shape())
 
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
-encoded = encoder.encoder(new_doc_vecs, new_q_vecs, hyper)
-'''
+encoded = encoder.encoder(document=d, question=q, hyperparameters=ARGS)
+
 
 # Testing code
 encoded = tf.random.uniform([num_batches, 2*hidden_state_size, 600])

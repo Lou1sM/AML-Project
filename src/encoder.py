@@ -34,7 +34,7 @@ def dynamic_bilstm(embed, hyperparameters):
     return lstm_outputs, final_state
  
 
-def doc_que_encoder(document_columns, question_columns, document_lengths, question_lengths, hyperparameters):
+def doc_que_encoder(document_columns, question_columns, hyperparameters, document_lengths=np.array([100]), question_lengths=np.array([4])):
     # Use batch_size from hyperparameters, dropout, num_cells
     # Data needs to come padded, also need the length 
     with tf.variable_scope('lstm') as scope:
