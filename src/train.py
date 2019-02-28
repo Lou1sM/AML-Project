@@ -34,7 +34,7 @@ dropout = 0.3
 # Architecture Parameters
 hidden_state_size = 200
 
-
+'''
 # Whatever the format of the data preparation, the output will
 # be a document-length sequence of glove word vectors, and a
 # question-length sequence of the same. Ideally it these would
@@ -56,6 +56,11 @@ new_doc_vecs, new_q_vecs, new_ground_truth_labels = iterator.get_next()
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
 encoded = encoder.encoder(new_doc_vecs, new_q_vecs, hyper)
+'''
+
+# Testing code
+encoded = tf.random.uniform([num_batches, 2*hidden_state_size, 600])
+new_ground_truth_labels = tf.random.uniform([1])
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
@@ -68,8 +73,8 @@ decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
 # Each guess is based on the previous guess so it seems we need
 # to start with some random guess, eg first and last document words
 
-u_s = encoded[0, :, :]  # Dummy guess start point
-u_e = encoded[-1, :, :]  # Dummy guess end point
+u_s = tf.zeros([num_batches, 2*hidden_state_size])  # Dummy guess start point
+u_e = tf.zeros([num_batches, 2*hidden_state_size])  # Dummy guess end point
 
 for i in range(4):
 
@@ -87,35 +92,39 @@ for i in range(4):
     # The decoding_lstm returns time-major (h_t, (h_t, C_t)).
 
     # an initial_state of None corresponds to initialisation with zeroes
-    time_major_cell_output, time_major_h = decoding_lstm(
+    lstm_output, h = decoding_lstm(
         inputs=tf.expand_dims(input=usue, axis=0),
         initial_state=None if i == 0 else tf.expand_dims(input=h, axis=0),
         training=True)
-    h = time_major_h[0, :, :]
+    lstm_output_reshaped = tf.squeeze(lstm_output, [0])
+    # the LSTM "state" in the paper is supposedly of size l. However, in reality
+    # an LSTM passes both its "output" and "cell state" to the next iteration.
+    # What exactly does the paper mean by h? If it's the concatenated cell state
+    # and output, then each of those should be 1/2 hidden state size, which is weird.
 
     # Make an estimation of start- and end-points. Define the
     # set of graph nodes for the HMN twice in two different namespaces
     # so that two copies are created and they can be trained separately
     with tf.variable_scope('start_estimator'):
-        alphas = highway_max_out.HMM(
+        alphas = highway_max_out.HMN(
             current_words=encoded,
-            lstm_hidden_state=h,
+            lstm_hidden_state=lstm_output_reshaped,
             prev_start_point_guess=u_s,
             prev_end_point_guess=u_e
         )
 
     with tf.variable_scope('end_estimator'):
-        betas = highway_max_out.HMM(
+        betas = highway_max_out.HMN(
             current_words=encoded,
-            lstm_hidden_state=h,
+            lstm_hidden_state=lstm_output_reshaped,
             prev_start_point_guess=u_s,
             prev_end_point_guess=u_e
         )
 
     s = tf.argmax(alphas)
-    u_s = encoded[s, :, :]
+    u_s = tf.gather(encoded, [s])
     e = tf.argmax(betas)
-    u_e = encoded[e, :, :]
+    u_e = tf.gather(encoded, [e])
 
     # Define loss and optimizer, each guess contributes to loss,
     # even the very first
@@ -156,9 +165,7 @@ with tf.Session() as sess:
     # add summaries with 'writer' every so often, for
     # tensorboard loss visualization
     for i in range(num_epochs):
-
         for _ in range(num_batches):
             summary, _ = sess.run([merged, train_step])
         # currently write summary for each epoch
         writer.add_summary(summary, i)
-
