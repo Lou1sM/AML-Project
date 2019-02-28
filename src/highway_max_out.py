@@ -3,7 +3,7 @@ import numpy as np
 from utils import weight_variable, bias_variable
 
 h_size=200
-pool_size=16
+pool_size=32
 # Shape=(batch_size, 5*hidden_state, document_length)
 dummy = tf.random.uniform([600,32,400])
 #print(dummy)
