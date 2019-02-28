@@ -4,3 +4,4 @@ dev/*
 # duplicate backup files
 *~
 *#*
+data/*

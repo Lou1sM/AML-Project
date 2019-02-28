@@ -1,8 +1,9 @@
 import tensorflow as tf
 import highway_max_out
-import andrei_encoder_script
+import encoder
 import ciprian_data_prep_script
-
+import argparse
+import numpy as np
 
 
 parser = argparse.ArgumentParser()
@@ -14,7 +15,7 @@ parser.add_argument("--batch_size", default=32, type=int, help="Size of each tra
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 ARGS = parser.parse_args()
 
-
+hyper = {'num_units':128, 'keep_prob': 1, 'batch_size': 1}
 
 # Batches are assumed to span the first dimension of tensors
 # The first start- and end-pointers are assumed to be the start
@@ -45,8 +46,8 @@ input_d_vecs, input_q_vecs, ground_truth_labels = ciprian_data_prep_script.get_d
 
 # Expecting ground truth labels to be a tuple containing indices
 # of start and end points
-
-dataset = tf.data.Dataset.from_tensor_slices(input_d_vecs, input_q_vecs, ground_truth_labels)
+#print("d vecs type:", type(input_d_vecs))
+dataset = tf.data.Dataset.from_tensor_slices(input_d_vecs)
 dataset = dataset.batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
 
@@ -54,7 +55,7 @@ new_doc_vecs, new_q_vecs, new_ground_truth_labels = iterator.get_next()
 
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
-encoded = andrei_encoder_script.encoder(new_doc_vecs, new_q_vecs)
+encoded = encoder.encoder(new_doc_vecs, new_q_vecs, hyper)
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
@@ -155,7 +156,9 @@ with tf.Session() as sess:
     # add summaries with 'writer' every so often, for
     # tensorboard loss visualization
     for i in range(num_epochs):
+
         for _ in range(num_batches):
             summary, _ = sess.run([merged, train_step])
         # currently write summary for each epoch
         writer.add_summary(summary, i)
+

@@ -6,7 +6,7 @@ h_size=200
 pool_size=16
 # Shape=(batch_size, 5*hidden_state, document_length)
 dummy = tf.random.uniform([600,32,400])
-print(dummy)
+#print(dummy)
 
 def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess):
 
