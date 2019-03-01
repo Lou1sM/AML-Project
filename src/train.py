@@ -11,7 +11,7 @@ parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs 
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 parser.add_argument("--lstm_size", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=32, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 ARGS = parser.parse_args()
 
@@ -64,9 +64,14 @@ encoded = tf.random.uniform([600, num_batches, 2*hidden_state_size])
 new_ground_truth_labels = tf.random.uniform([2, num_batches, 600])
 '''
 
+# Static tensor to be re-used in main loop iterations
+batch_indices = tf.range(start=0, limit=num_batches, dtype=tf.int32)
+
 # Create single nodes for labels
-start_labels = tf.squeeze(tf.gather(new_ground_truth_labels, [0]), [0])
-end_labels = tf.squeeze(tf.gather(new_ground_truth_labels, [1]), [0])
+# TODO: Derive one-hot encoded labels from data
+one_hot_labels = ...
+start_labels = tf.squeeze(tf.gather(one_hot_labels, [0]), [0])
+end_labels = tf.squeeze(tf.gather(one_hot_labels, [1]), [0])
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
@@ -128,8 +133,6 @@ for i in range(4):
             prev_end_point_guess=u_e
         )
     betas = tf.squeeze(tf.transpose(betas), [0])
-
-    batch_indices = tf.range(start=0, limit=num_batches, dtype=tf.int32)
 
     s = tf.argmax(alphas, axis=1, output_type=tf.int32)
     s_indices = tf.transpose(tf.stack([s, batch_indices]))
