@@ -34,7 +34,6 @@ dropout = 0.3
 # Architecture Parameters
 hidden_state_size = 200
 
-'''
 # Whatever the format of the data preparation, the output will
 # be a document-length sequence of glove word vectors, and a
 # question-length sequence of the same. Ideally it these would
@@ -56,11 +55,16 @@ new_doc_vecs, new_q_vecs, new_ground_truth_labels = iterator.get_next()
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
 encoded = encoder.encoder(new_doc_vecs, new_q_vecs, hyper)
+
+'''
+# Testing code
+encoded = tf.random.uniform([600, num_batches, 2*hidden_state_size])
+new_ground_truth_labels = tf.random.uniform([2, num_batches, 600])
 '''
 
-# Testing code
-encoded = tf.random.uniform([num_batches, 2*hidden_state_size, 600])
-new_ground_truth_labels = tf.random.uniform([1])
+# Create single nodes for labels
+start_labels = tf.squeeze(tf.gather(new_ground_truth_labels, [0]), [0])
+end_labels = tf.squeeze(tf.gather(new_ground_truth_labels, [1]), [0])
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
@@ -90,13 +94,13 @@ for i in range(4):
     # In the paper (and here), h is the concatenation of cell output and cell state
     # (h_t and C_t in colah.github.io/posts/2015-08-Understanding-LSTMs/ ).
     # The decoding_lstm returns time-major (h_t, (h_t, C_t)).
-
     # an initial_state of None corresponds to initialisation with zeroes
-    lstm_output, h = decoding_lstm(
-        inputs=tf.expand_dims(input=usue, axis=0),
-        initial_state=None if i == 0 else tf.expand_dims(input=h, axis=0),
-        training=True)
-    lstm_output_reshaped = tf.squeeze(lstm_output, [0])
+    with tf.variable_scope("decoding_lstm", reuse=tf.AUTO_REUSE):
+        lstm_output, h = decoding_lstm(
+            inputs=tf.expand_dims(input=usue, axis=0),
+            initial_state=None if i == 0 else h,
+            training=True)
+        lstm_output_reshaped = tf.squeeze(lstm_output, [0])
     # the LSTM "state" in the paper is supposedly of size l. However, in reality
     # an LSTM passes both its "output" and "cell state" to the next iteration.
     # What exactly does the paper mean by h? If it's the concatenated cell state
@@ -112,6 +116,7 @@ for i in range(4):
             prev_start_point_guess=u_s,
             prev_end_point_guess=u_e
         )
+    alphas = tf.squeeze(tf.transpose(alphas), [0])
 
     with tf.variable_scope('end_estimator'):
         betas = highway_max_out.HMN(
@@ -120,21 +125,26 @@ for i in range(4):
             prev_start_point_guess=u_s,
             prev_end_point_guess=u_e
         )
+    betas = tf.squeeze(tf.transpose(betas), [0])
 
-    s = tf.argmax(alphas)
-    u_s = tf.gather(encoded, [s])
-    e = tf.argmax(betas)
-    u_e = tf.gather(encoded, [e])
+    batch_indices = tf.range(start=0, limit=num_batches, dtype=tf.int32)
+
+    s = tf.argmax(alphas, axis=1, output_type=tf.int32)
+    s_indices = tf.transpose(tf.stack([s, batch_indices]))
+    u_s = tf.gather_nd(encoded, s_indices)
+
+    e = tf.argmax(betas, axis=1, output_type=tf.int32)
+    e_indices = tf.transpose(tf.stack([e, batch_indices]))
+    u_e = tf.gather_nd(encoded, e_indices)
 
     # Define loss and optimizer, each guess contributes to loss,
     # even the very first
     s_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-        labels=new_ground_truth_labels[0],
+        labels=start_labels,
         logits=alphas
     )
-
     e_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
-        labels=new_ground_truth_labels[1],
+        labels=end_labels,
         logits=betas
     )
 
