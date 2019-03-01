@@ -121,7 +121,8 @@ for i in range(4):
             current_words=encoded,
             lstm_hidden_state=lstm_output_reshaped,
             prev_start_point_guess=u_s,
-            prev_end_point_guess=u_e
+            prev_end_point_guess=u_e,
+            name="HMN_start"
         )
     alphas = tf.squeeze(tf.transpose(alphas), [0])
 
@@ -130,7 +131,8 @@ for i in range(4):
             current_words=encoded,
             lstm_hidden_state=lstm_output_reshaped,
             prev_start_point_guess=u_s,
-            prev_end_point_guess=u_e
+            prev_end_point_guess=u_e,
+            name="HMN_end"
         )
     betas = tf.squeeze(tf.transpose(betas), [0])
 
@@ -153,12 +155,14 @@ for i in range(4):
         logits=betas
     )
 
-    iteration_loss = s_loss + e_loss
+    with tf.name_scope("iteration_" + str(i) + "_loss"):
+        iteration_loss = s_loss + e_loss
+        tf.summary.scalar('loss', loss)
 
     loss = iteration_loss if i == 0 else loss + iteration_loss
 
 # Keep track of loss
-tf.summary.scalar('loss', loss)
+tf.summary.scalar('total_loss', loss)
 
 # Set up learning process
 optimizer = tf.train.AdamOptimizer(learning_rate)  # They don't give learning rate!
