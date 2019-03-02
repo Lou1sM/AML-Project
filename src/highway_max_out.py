@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from utils import weight_variable, bias_variable
 
-from src.utils import variable_summaries
+from utils import variable_summaries
 
 h_size=200
 pool_size=32

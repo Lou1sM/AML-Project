@@ -46,7 +46,6 @@ input_d_vecs, input_q_vecs, ground_truth_labels = ciprian_data_prep_script.get_d
 
 # Expecting ground truth labels to be a tuple containing indices
 # of start and end points
-print("d vecs type:", input_d_vecs)
 dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
 #dataset = dataset.batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
@@ -54,9 +53,21 @@ iterator = dataset.make_initializable_iterator()
 d, q, a = iterator.get_next()
 print(d.get_shape())
 
+# TODO: get question and documents lengths in vectors question_lengths, document_lengths
+# extend preprocessed data with text lengths and get them accordingly, hardcoded atm:
+questions_lengths = np.array([20])
+documents_lengths = np.array([150])
+
+
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
-encoded = encoder.encoder(document=d, question=q, hyperparameters=ARGS)
+encoded = encoder.encoder(
+					document=d,
+					question=q,
+					documents_lengths = documents_lengths,
+					questions_lengths = questions_lengths,
+					hyperparameters = hyper
+					)
 
 '''
 # Testing code
