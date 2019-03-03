@@ -42,7 +42,7 @@ hidden_state_size = 200
 # another format is ok if that's all that's possible
 #
 # For example:
-input_d_vecs, input_q_vecs, ground_truth_labels = ciprian_data_prep_script.get_data()
+input_d_vecs, input_q_vecs, ground_truth_labels, document_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
 # Expecting ground truth labels to be a tuple containing indices
 # of start and end points
@@ -80,7 +80,8 @@ batch_indices = tf.range(start=0, limit=num_batches, dtype=tf.int32)
 
 # Create single nodes for labels
 # TODO: Derive one-hot encoded labels from data
-one_hot_labels = ...
+# document_lengths[i] : ground_truth_labels[i][0], ground_truth_labels[i][1]
+one_hot_labels = tf.one_hot(ground_truth_labels.flatten(), 766)
 start_labels = tf.squeeze(tf.gather(one_hot_labels, [0]), [0])
 end_labels = tf.squeeze(tf.gather(one_hot_labels, [1]), [0])
 

@@ -5,8 +5,10 @@ import itertools
 import time
 import nltk 
 import pickle 
-filename = 'embedding/glove.6B/glove.6B.300d.txt'
-json_filename = 'squad/train-v1.1.json'
+
+filename = 'data/embedding/glove.6B/glove.6B.300d.txt'
+train_json_filename = 'data/squad/train-v1.1.json'
+test_json_filename = 'data/squad/dev-v1.1.json'
 time1 = time.time()
 gloveDimension = 300
 q_length = 60
@@ -19,7 +21,7 @@ def load_glove(filename):
 	for line in file.readlines():
 		row = line.strip().split(' ')
 		embedding[row[0]] = list(map(float, row[1:]))
-	print('Loaded GloVe mothafucka!')
+	print('Loaded GloVe!')
 	file.close()
 	return embedding
 
@@ -40,42 +42,29 @@ def save_titles():
 	data = load_train_data(json_filename)
 	answer = map(lambda x: x['title'], data['data'])
 	return list(answer)
-def process_squad(x):
+
+def process_squad(x, multiple_answers):
 	global max_count
 	context = nltk.word_tokenize(x['context'])
 	qas = x['qas']
 	answers = list(map(lambda x: x['answers'], qas))
-	answer_start = []
+	answer_interval = []
 	for i in range(len(answers)):
-		# if(len(answers[i])==1):
-		answer = answers[i][0]
-		len_answer = len(nltk.word_tokenize(answer['text']))
-		answer = answer['answer_start']
-		answer_start.append([answer, answer+len_answer])
-		# elif(len(answer[i])==2):
-		# 	print("pulalala")
-		# 	answer = answers[i]
-		# 	answer1 = answer[0]['answer_start']
-		# 	len_answer = len(nltk.word_tokenize(answer[0]['text']))
-		# 	answer1 = [answer1, answer1+len_answer]
-		# 	answer2 = answer[1]['answer_start']
-		# 	len_answer = len(nltk.word_tokenize(answer[1]['text']))
-		# 	answer2 = [answer2, answer2+len_answer]
-		# 	answer_start[i].append([answer1, answer2, answer1])
-		# else:
-		# 	answer = answers[i]
-		# 	len_answer = len(nltk.word_tokenize(answer[0]['text']))
-		# 	answer1 = answer[0]['answer_start']
-		# 	answer1 = [answer1, answer1 + len_answer]
-		# 	len_answer = len(nltk.word_tokenize(answer[1]['text']))
-		# 	answer2 = answer[1]['answer_start']
-		# 	answer2 = [answer2, answer2 + len_answer]
-		# 	len_answer = len(nltk.word_tokenize(answer[2]['text']))
-		# 	answer2 = answer[2]['answer_start']
-		# 	answer3 = [answer3, answer3 + len_answer]
-		#	answer_start[i].append([answer1, answer2, answer3])
+		if(multiple_answers):
+			intervals = []
+			for j in range(len(answers[i])):
+				answer = answers[i][j]
+				len_answer = len(nltk.word_tokenize(answer['text']))
+				answer = answer['answer_start']
+				intervals.append([answer, answer+len_answer])
+			answer_interval.append(intervals)
+		else:		
+			answer = answers[i][0]
+			len_answer = len(nltk.word_tokenize(answer['text']))
+			answer = answer['answer_start']
+			answer_interval.append([answer, answer+len_answer])
 	question = list(map(lambda x: nltk.word_tokenize(x['question']), qas))
-	qa = list(zip(question, answer_start))
+	qa = list(zip(question, answer_interval))
 	product = [context, qa]
 	return list(product)
 
@@ -86,31 +75,63 @@ def apply_embd(dic, context):
 	answers = [[document, x[0], x[1]] for x in answers]
 	return answers
 
-def save_embeddings():
+def save_embeddings(type_of_embeddings):
+	multiple_answers = False
+	json_filename = train_json_filename
+
+	if(type_of_embeddings == 'padded_test_data' or type_of_embeddings == 'unpadded_test_data'):
+		multiple_answers = True
+		json_filename = test_json_filename
+
+	padded_data = False
+	if(type_of_embeddings == 'padded_test_data' or type_of_embeddings == 'padded_train_data'):
+		padded_data = True
+
 	embedding = load_glove(filename)
 	data = load_train_data(json_filename)
 	answer = map(lambda x: x['paragraphs'], data['data'])
 	answer = list(answer)
 	answer = [item for sublist in answer for item in sublist]
-	data = list(map(lambda x: process_squad(x), answer))
+	data = list(map(lambda x: process_squad(x, multiple_answers), answer))
 	process_data = list(map(lambda x: apply_embd(embedding, x), data))
 	data_array = [item for sublist in process_data for item in sublist]
-	padded_array = []
-	print('am inceput bossule..intr-un for cum intr-un ma-ta')
-	for i in range(len(data_array)):
-		print(i)
-		doc = data_array[i][0]
-		que = data_array[i][1]
-		pad = gloveDimension * [0.0]
-		doc.extend([pad] * (d_length - len(doc)))
-		que.extend([pad] * (q_length - len(que)))
-		ans = data_array[i][2][0]
-		element = np.array([doc, que, ans])
-		padded_array.append(element)
-		data_array[i] = []
 
-	padded_array = np.array(padded_array)
-	np.save("data", padded_array)
+	if(padded_data):
+		documents = []
+		questions = []
+		answers = []
+		lengths_doc = []
+		lengths_que = []
+		for i in range(10):
+			doc = list.copy(data_array[i][0])
+			que = list.copy(data_array[i][1])
+			pad = gloveDimension * [0.0]
+			lengths_doc.append(len(doc))
+			lengths_que.append(len(que))
+			doc.extend([pad] * (d_length - len(doc)))
+			que.extend([pad] * (q_length - len(que)))
+			ans = data_array[i][2]
+			documents.append(doc)
+			questions.append(que)
+			answers.append(ans)
+		documents = np.array(documents)
+		print('doc done')
+		questions = np.array(questions)
+		print('que done')
+		answers = np.array(answers)
+		print('ans done')
+		lengths_doc = np.array(lengths_doc)
+		lengths_que = np.array(lengths_que)
+		data_array = [[documents, questions, answers], [lengths_doc, lengths_que]]
+	else:
+		documents = np.asarray(list(map (lambda x: np.array(x[0]), data_array)))
+		questions = np.asarray(list(map (lambda x: np.array(x[1]), data_array)))
+		answers = np.asarray(list(map (lambda x: np.array(x[2]), data_array)))
+		data_array = [documents,questions,answers] 
 
+	np.save('data/'+type_of_embeddings, data_array)
 
-save_embeddings()
+# the types are 'padded_train_data', 'unpadded_train_data', 'padded_test_data', 'unpadded_test_data'
+# the padded version also contain the lenghts of the original data points 
+type_of_embeddings = 'padded_train_data'
+save_embeddings(type_of_embeddings)
