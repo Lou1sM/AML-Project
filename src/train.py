@@ -4,13 +4,12 @@ import encoder
 import ciprian_data_prep_script
 import argparse
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 parser.add_argument("--num_units", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=1, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=10, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
@@ -66,9 +65,6 @@ for i in range(4):
     # the 'initial' state to the previous output. CudnnLSTMs output is
     # similarly time-major (has a first dimension that spans time).
 
-    # In the paper (and here), h is the concatenation of cell output and cell state
-    # (h_t and C_t in colah.github.io/posts/2015-08-Understanding-LSTMs/ ).
-    # The decoding_lstm returns time-major (h_t, (h_t, C_t)).
     # an initial_state of None corresponds to initialisation with zeroes
     with tf.variable_scope("decoding_lstm", reuse=tf.AUTO_REUSE):
         lstm_output, h = decoding_lstm(
@@ -76,10 +72,6 @@ for i in range(4):
             initial_state=None if i == 0 else h,
             training=True)
         lstm_output_reshaped = tf.squeeze(lstm_output, [0])
-    # the LSTM "state" in the paper is supposedly of size l. However, in reality
-    # an LSTM passes both its "output" and "cell state" to the next iteration.
-    # What exactly does the paper mean by h? If it's the concatenated cell state
-    # and output, then each of those should be 1/2 hidden state size, which is weird.
 
     # Make an estimation of start- and end-points. Define the
     # set of graph nodes for the HMN twice in two different namespaces
