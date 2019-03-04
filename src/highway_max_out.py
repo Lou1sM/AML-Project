@@ -55,7 +55,7 @@ def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point
 
 
 if __name__ == "__main__":
-    hmn_out = HMN(dummy, tf.random.uniform([32,200]), tf.random.uniform([32,2*h_size]), tf.random.uniform([32,2*h_size]))
+    hmn_out = HMN(dummy, tf.random.uniform([32,200]), tf.random.uniform([32,2*h_size]), tf.random.uniform([32,2*h_size]), "dummy")
     
     print('output shape:', hmn_out.get_shape())
     #sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
