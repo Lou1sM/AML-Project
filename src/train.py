@@ -15,7 +15,7 @@ parser.add_argument("--batch_size", default=64, type=int, help="Size of each tra
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 ARGS = parser.parse_args()
 
-hyper = {'num_units':128, 'keep_prob': 1, 'batch_size': 1}
+hyper = {'num_units':300, 'keep_prob': 1, 'batch_size': 1}
 
 # Batches are assumed to span the first dimension of tensors
 # The first start- and end-pointers are assumed to be the start
@@ -32,7 +32,7 @@ dropout = 0.3
 # The authors "apply 0.3 dropout on the question and document encodings"
 
 # Architecture Parameters
-hidden_state_size = 200
+hidden_state_size = 300
 
 
 # Whatever the format of the data preparation, the output will
@@ -42,7 +42,7 @@ hidden_state_size = 200
 # another format is ok if that's all that's possible
 #
 # For example:
-input_d_vecs, input_q_vecs, ground_truth_labels, document_lengths, questions_lengths = ciprian_data_prep_script.get_data()
+input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
 # Expecting ground truth labels to be a tuple containing indices
 # of start and end points
@@ -53,21 +53,16 @@ iterator = dataset.make_initializable_iterator()
 d, q, a = iterator.get_next()
 print(d.get_shape())
 
-# TODO: get question and documents lengths in vectors question_lengths, document_lengths
-# extend preprocessed data with text lengths and get them accordingly, hardcoded atm:
-questions_lengths = np.array([20])
-documents_lengths = np.array([150])
-
-
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
 encoded = encoder.encoder(
 					document=d,
 					question=q,
-					documents_lengths = documents_lengths,
-					questions_lengths = questions_lengths,
+					documents_lengths = documents_lengths[:1],
+					questions_lengths = questions_lengths[:1],
 					hyperparameters = hyper
 					)
+
 
 '''
 # Testing code

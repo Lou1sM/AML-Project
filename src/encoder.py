@@ -34,8 +34,6 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     initial_bw_state, bw_cell = build_lstm_cell(num_units, keep_prob, batch_size)
     # embed = tf.expand_dims(embed, axis=0) # assuming input is one datapoint
     embed = tf.cast(embed,tf.float32) # assuming input is one datapoint
-    # import pdb
-    # pdb.set_trace()
     lstm_outputs, final_fw_state, final_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                                                         cells_fw = [fw_cell], 
                                                         cells_bw = [bw_cell], 
@@ -50,12 +48,13 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
 def doc_que_encoder(document_columns, question_columns, documents_lengths, questions_lengths, hyperparameters):
     # Use batch_size from hyperparameters, dropout, num_cells
     # Data needs to come padded, also need the length 
+    num_units = hyperparameters["num_units"]
     with tf.variable_scope('lstm') as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
         scope.reuse_variables()
         que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters)
     with tf.variable_scope('tanhlayer') as scope:
-        linear_model = tf.layers.Dense(units = 128)
+        linear_model = tf.layers.Dense(units = num_units)
         question_enc = tf.math.tanh(linear_model(que_lstm_outputs))
  
     return document_enc, question_enc
@@ -80,6 +79,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     C_D = tf.matmul(concat_1, A_D)
 
     concat_2 = tf.concat([tf.transpose(D, perm = [0,2,1]), C_D], 1)
+    concat_2 = tf.transpose(concat_2, perm = [0,2,1])
     BiLSTM_outputs, BiLSTM_final_fw_state, BiLSTM_final_bw_state = dynamic_bilstm(concat_2, documents_lengths, hyperparameters)
 
     return BiLSTM_outputs
