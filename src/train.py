@@ -9,38 +9,18 @@ import numpy as np
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
-parser.add_argument("--lstm_size", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+parser.add_argument("--num_units", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
+parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
 ARGS = parser.parse_args()
 
-hyper = {'num_units':128, 'keep_prob': 1, 'batch_size': 1}
-
-# Batches are assumed to span the first dimension of tensors
-# The first start- and end-pointers are assumed to be the start
-# and end of document (we might consider randomising these)
-
-# Learning Parameters
-dropout = 0.3
-# The authors "apply 0.3 dropout on the question and document encodings"
-
-# Whatever the format of the data preparation, the output will
-# be a document-length sequence of glove word vectors, and a
-# question-length sequence of the same. Ideally it these would
-# be generator objects with the faster tf.data.Dataset, but
-# another format is ok if that's all that's possible
-#
-# For example:
 input_d_vecs, input_q_vecs, ground_truth_labels, document_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
-# Expecting ground truth labels to be a tuple containing indices
-# of start and end points
 dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
-#dataset = dataset.batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
-
 d, q, a = iterator.get_next()
 
 # TODO: get question and documents lengths in vectors question_lengths, document_lengths
@@ -56,7 +36,7 @@ encoded = encoder.encoder(
 					question=q,
 					documents_lengths = documents_lengths,
 					questions_lengths = questions_lengths,
-					hyperparameters = hyper
+					hyperparameters = ARGS
 					)
 
 '''
@@ -71,13 +51,11 @@ batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
 # Create single nodes for labels
 # TODO: Derive one-hot encoded labels from data
 # document_lengths[i] : ground_truth_labels[i][0], ground_truth_labels[i][1]
-print(ground_truth_labels)
-one_hot_labels = tf.one_hot(ground_truth_labels.flatten(), 766)
-print(one_hot_labels)
-start_labels = tf.squeeze(tf.gather(one_hot_labels, [0]), [0])
-print(start_labels)
-end_labels = tf.squeeze(tf.gather(one_hot_labels, [1]), [0])
-print(end_labels)
+ground_truth_labels = tf.transpose(ground_truth_labels)
+start_labels = tf.squeeze(tf.gather(ground_truth_labels, [0]), [0])
+end_labels = tf.squeeze(tf.gather(ground_truth_labels, [1]), [0])
+start_labels = tf.one_hot(start_labels, 766)
+end_labels = tf.one_hot(start_labels, 766)
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
@@ -190,7 +168,7 @@ with tf.Session() as sess:
     # add summaries with 'writer' every so often, for
     # tensorboard loss visualization
     for i in range(ARGS.num_epochs):
-        for _ in range(num_batches):
+        for _ in range(1):  # for now
             summary, _ = sess.run([merged, train_step])
         # currently write summary for each epoch
         writer.add_summary(summary, i)
