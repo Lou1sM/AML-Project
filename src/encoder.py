@@ -8,7 +8,7 @@ import tensorflow as tf
 
 # Provide hyperparameters to functions below as dictionary with keys "num_units", "keep_prob", "batch_size"
 
-def build_lstm_cell(num_units = 128, keep_prob = 1, batch_size = 32): 
+def build_lstm_cell(num_units = 200, keep_prob = 1, batch_size = 10): 
     lstm = tf.contrib.rnn.BasicLSTMCell(num_units)
     cell = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob = keep_prob)
     initial_state = cell.zero_state(batch_size, tf.float32)
