@@ -17,26 +17,24 @@ parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hi
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
 ARGS = parser.parse_args()
 
-input_d_vecs, input_q_vecs, ground_truth_labels, document_lengths, questions_lengths = ciprian_data_prep_script.get_data()
+input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
+# Expecting ground truth labels to be a tuple containing indices
+# of start and end points
 dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
+#dataset = dataset.batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
+
 d, q, a = iterator.get_next()
-
-# TODO: get question and documents lengths in vectors question_lengths, document_lengths
-# extend preprocessed data with text lengths and get them accordingly, hardcoded atm:
-questions_lengths = np.array([20])
-documents_lengths = np.array([150])
-
 
 # Encode into the matrix U, using notation from the paper
 # The output should be of shape [2*hidden_size, document_length]
 encoded = encoder.encoder(
 					document=d,
 					question=q,
-					documents_lengths = documents_lengths,
-					questions_lengths = questions_lengths,
-					hyperparameters = ARGS
+					documents_lengths = documents_lengths[:1],
+					questions_lengths = questions_lengths[:1],
+                    hyperparameters = ARGS
 					)
 
 '''
