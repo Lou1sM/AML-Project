@@ -4,7 +4,7 @@ from utils import weight_variable, bias_variable
 
 from utils import variable_summaries
 
-h_size=300
+h_size=200
 pool_size=32
 # Shape=(batch_size, 5*hidden_state, document_length)
 dummy = tf.random.uniform([600,32,400])
