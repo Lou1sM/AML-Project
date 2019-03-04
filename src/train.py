@@ -3,7 +3,6 @@ import highway_max_out
 import encoder
 import ciprian_data_prep_script
 import argparse
-import numpy as np
 
 
 parser = argparse.ArgumentParser()
@@ -19,16 +18,10 @@ ARGS = parser.parse_args()
 
 input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
-# Expecting ground truth labels to be a tuple containing indices
-# of start and end points
 dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
-#dataset = dataset.batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
-
 d, q, a = iterator.get_next()
 
-# Encode into the matrix U, using notation from the paper
-# The output should be of shape [2*hidden_size, document_length]
 encoded = encoder.encoder(
 					document=d,
 					question=q,
@@ -47,8 +40,6 @@ new_ground_truth_labels = tf.random.uniform([2, batch_size, 600])
 batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
 
 # Create single nodes for labels
-# TODO: Derive one-hot encoded labels from data
-# document_lengths[i] : ground_truth_labels[i][0], ground_truth_labels[i][1]
 ground_truth_labels = tf.transpose(ground_truth_labels)
 start_labels = tf.squeeze(tf.gather(ground_truth_labels, [0]), [0])
 end_labels = tf.squeeze(tf.gather(ground_truth_labels, [1]), [0])
@@ -60,12 +51,7 @@ decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
     num_layers=1,
     num_units=ARGS.hidden_size)
 
-# Get lstm_dec hidden state values from U in order to make the
 # first guess for start- and end-points
-# Output should be of shape [2*hidden_size]
-# Each guess is based on the previous guess so it seems we need
-# to start with some random guess, eg first and last document words
-
 u_s = tf.zeros([ARGS.batch_size, 2*ARGS.hidden_size])  # Dummy guess start point
 u_e = tf.zeros([ARGS.batch_size, 2*ARGS.hidden_size])  # Dummy guess end point
 
@@ -155,16 +141,8 @@ merged = tf.summary.merge_all()
 writer = tf.summary.FileWriter("summaries/")
 writer.add_graph(tf.get_default_graph())
 
-
-# Define the session, which will use default_graph, ie the
-# graph that contains all the nodes defined in the current
-# script (I think that's what default_graph is anyway)
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-
-    # This bit will depend on data format, we can also
-    # add summaries with 'writer' every so often, for
-    # tensorboard loss visualization
     for i in range(ARGS.num_epochs):
         for _ in range(1):  # for now
             summary, _ = sess.run([merged, train_step])
