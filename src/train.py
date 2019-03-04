@@ -53,7 +53,7 @@ ground_truth_labels = tf.transpose(ground_truth_labels)
 start_labels = tf.squeeze(tf.gather(ground_truth_labels, [0]), [0])
 end_labels = tf.squeeze(tf.gather(ground_truth_labels, [1]), [0])
 start_labels = tf.one_hot(start_labels, 766)
-end_labels = tf.one_hot(start_labels, 766)
+end_labels = tf.one_hot(end_labels, 766)
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
