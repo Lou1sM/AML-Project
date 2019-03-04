@@ -13,6 +13,7 @@ parser.add_argument("--lstm_size", default=200, type=int, help="Number of recurr
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
+parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 ARGS = parser.parse_args()
 
 hyper = {'num_units':128, 'keep_prob': 1, 'batch_size': 1}
@@ -21,19 +22,9 @@ hyper = {'num_units':128, 'keep_prob': 1, 'batch_size': 1}
 # The first start- and end-pointers are assumed to be the start
 # and end of document (we might consider randomising these)
 
-# Global variables
-# We may want to move these to an object and pass it to components
-
 # Learning Parameters
-num_epochs = 100
-num_batches = 64
-learning_rate = 1e-3
 dropout = 0.3
 # The authors "apply 0.3 dropout on the question and document encodings"
-
-# Architecture Parameters
-hidden_state_size = 200
-
 
 # Whatever the format of the data preparation, the output will
 # be a document-length sequence of glove word vectors, and a
@@ -51,7 +42,6 @@ dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_
 iterator = dataset.make_initializable_iterator()
 
 d, q, a = iterator.get_next()
-print(d.get_shape())
 
 # TODO: get question and documents lengths in vectors question_lengths, document_lengths
 # extend preprocessed data with text lengths and get them accordingly, hardcoded atm:
@@ -71,24 +61,28 @@ encoded = encoder.encoder(
 
 '''
 # Testing code
-encoded = tf.random.uniform([600, num_batches, 2*hidden_state_size])
-new_ground_truth_labels = tf.random.uniform([2, num_batches, 600])
+encoded = tf.random.uniform([600, batch_size, 2*ARGS.hidden_size])
+new_ground_truth_labels = tf.random.uniform([2, batch_size, 600])
 '''
 
 # Static tensor to be re-used in main loop iterations
-batch_indices = tf.range(start=0, limit=num_batches, dtype=tf.int32)
+batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
 
 # Create single nodes for labels
 # TODO: Derive one-hot encoded labels from data
 # document_lengths[i] : ground_truth_labels[i][0], ground_truth_labels[i][1]
+print(ground_truth_labels)
 one_hot_labels = tf.one_hot(ground_truth_labels.flatten(), 766)
+print(one_hot_labels)
 start_labels = tf.squeeze(tf.gather(one_hot_labels, [0]), [0])
+print(start_labels)
 end_labels = tf.squeeze(tf.gather(one_hot_labels, [1]), [0])
+print(end_labels)
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
     num_layers=1,
-    num_units=hidden_state_size)
+    num_units=ARGS.hidden_size)
 
 # Get lstm_dec hidden state values from U in order to make the
 # first guess for start- and end-points
@@ -96,8 +90,8 @@ decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
 # Each guess is based on the previous guess so it seems we need
 # to start with some random guess, eg first and last document words
 
-u_s = tf.zeros([num_batches, 2*hidden_state_size])  # Dummy guess start point
-u_e = tf.zeros([num_batches, 2*hidden_state_size])  # Dummy guess end point
+u_s = tf.zeros([ARGS.batch_size, 2*ARGS.hidden_size])  # Dummy guess start point
+u_e = tf.zeros([ARGS.batch_size, 2*ARGS.hidden_size])  # Dummy guess end point
 
 for i in range(4):
 
@@ -177,7 +171,7 @@ for i in range(4):
 tf.summary.scalar('total_loss', loss)
 
 # Set up learning process
-optimizer = tf.train.AdamOptimizer(learning_rate)  # They don't give learning rate!
+optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)  # They don't give learning rate!
 train_step = optimizer.minimize(loss)
 
 # For Tensorboard
@@ -195,7 +189,7 @@ with tf.Session() as sess:
     # This bit will depend on data format, we can also
     # add summaries with 'writer' every so often, for
     # tensorboard loss visualization
-    for i in range(num_epochs):
+    for i in range(ARGS.num_epochs):
         for _ in range(num_batches):
             summary, _ = sess.run([merged, train_step])
         # currently write summary for each epoch
