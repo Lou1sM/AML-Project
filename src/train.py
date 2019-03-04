@@ -8,11 +8,11 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
-parser.add_argument("--num_units", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+parser.add_argument("--num_units", default=300, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=1, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
-parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
+parser.add_argument("--hidden_size", default=300, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
 ARGS = parser.parse_args()
 
@@ -44,7 +44,7 @@ ground_truth_labels = tf.transpose(ground_truth_labels)
 start_labels = tf.squeeze(tf.gather(ground_truth_labels, [0]), [0])
 end_labels = tf.squeeze(tf.gather(ground_truth_labels, [1]), [0])
 start_labels = tf.one_hot(start_labels, 766)
-end_labels = tf.one_hot(start_labels, 766)
+end_labels = tf.one_hot(end_labels, 766)
 
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(

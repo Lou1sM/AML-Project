@@ -27,10 +27,6 @@ def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point
             variable_summaries(w1)
             b1 = bias_variable([h_size, pool_size])
             variable_summaries(b1)
-            # import pdb
-            # pdb.set_trace()
-            import pdb
-            pdb.set_trace()
             concated_words = tf.map_fn(lambda x: tf.concat([x, r], axis=1), current_words)
             mt1 = tf.math.add(tf.tensordot(concated_words, w1, axes=[[2], [0]]), b1)
             mt1 = tf.reduce_max(mt1, reduction_indices=[3])
