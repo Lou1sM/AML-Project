@@ -16,9 +16,9 @@ def build_lstm_cell(num_units = 128, keep_prob = 1, batch_size = 32):
 
 
 def dynamic_lstm(embed, sequence_lengths, hyperparameters):
-    num_units = hyperparameters["num_units"]
-    keep_prob = hyperparameters["keep_prob"]
-    batch_size = hyperparameters["batch_size"]
+    num_units = hyperparameters.num_units
+    keep_prob = hyperparameters.keep_prob
+    batch_size = hyperparameters.batch_size
     initial_state, cell = build_lstm_cell(num_units, keep_prob, batch_size)
     embed = tf.expand_dims(embed, axis=0) # assuming input is one datapoint
     embed = tf.cast(embed,tf.float32) # assuming input is one datapoint
@@ -27,9 +27,9 @@ def dynamic_lstm(embed, sequence_lengths, hyperparameters):
 
 
 def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
-    num_units = hyperparameters["num_units"]
-    keep_prob = hyperparameters["keep_prob"]
-    batch_size = hyperparameters["batch_size"]
+    num_units = hyperparameters.num_units
+    keep_prob = hyperparameters.keep_prob
+    batch_size = hyperparameters.batch_size
     initial_fw_state, fw_cell = build_lstm_cell(num_units, keep_prob, batch_size)
     initial_bw_state, bw_cell = build_lstm_cell(num_units, keep_prob, batch_size)
     # embed = tf.expand_dims(embed, axis=0) # assuming input is one datapoint
@@ -48,7 +48,7 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
 def doc_que_encoder(document_columns, question_columns, documents_lengths, questions_lengths, hyperparameters):
     # Use batch_size from hyperparameters, dropout, num_cells
     # Data needs to come padded, also need the length 
-    num_units = hyperparameters["num_units"]
+    num_units = hyperparameters.num_units
     with tf.variable_scope('lstm') as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
         scope.reuse_variables()
