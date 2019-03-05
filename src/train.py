@@ -13,6 +13,7 @@ parser.add_argument("--batch_size", default=1, type=int, help="Size of each trai
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
+parser.add_argument("--learning_rate", default=1e-3, type=float, help="Learning rate.")
 ARGS = parser.parse_args()
 
 input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
@@ -20,6 +21,7 @@ input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_le
 dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
 #dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels)).batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
+init = iterator.make_initializer(dataset)
 d, q, a = iterator.get_next()
 
 # Delete the 3 lines below when moving to batches, now it is adapted for 1 datapoint
@@ -127,12 +129,12 @@ for i in range(4):
 
     with tf.name_scope("iteration_" + str(i) + "_loss"):
         iteration_loss = s_loss + e_loss
-        tf.summary.scalar('loss', loss)
+        #tf.summary.scalar('loss', iteration_loss)
 
     loss = iteration_loss if i == 0 else loss + iteration_loss
 
 # Keep track of loss
-tf.summary.scalar('total_loss', loss)
+#tf.summary.scalar('total_loss', loss)
 
 # Set up learning process
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)  # They don't give learning rate!
@@ -145,8 +147,12 @@ writer.add_graph(tf.get_default_graph())
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-    for i in range(ARGS.num_epochs):
+
+    #for i in range(ARGS.num_epochs):
+    for i in range(100):
+        sess.run(init)
         for _ in range(1):  # for now
-            summary, _ = sess.run([merged, train_step])
-        # currently write summary for each epoch
+            summary, _, loss_val = sess.run([merged, train_step, loss])
+            print(loss_val)
+       # currently write summary for each epoch
         writer.add_summary(summary, i)
