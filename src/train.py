@@ -22,11 +22,16 @@ dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_
 iterator = dataset.make_initializable_iterator()
 d, q, a = iterator.get_next()
 
+# Delete the 3 lines below when moving to batches, now it is adapted for 1 datapoint
+documents_lengths = documents_lengths[:1]
+questions_lengths = questions_lengths[:1]
+ground_truth_labels = ground_truth_labels[:1]
+
 encoded = encoder.encoder(
 					document=d,
 					question=q,
-					documents_lengths = documents_lengths[:1],
-					questions_lengths = questions_lengths[:1],
+					documents_lengths = documents_lengths,
+					questions_lengths = questions_lengths,
                     hyperparameters = ARGS
 					)
 
