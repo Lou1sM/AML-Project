@@ -21,8 +21,7 @@ def dynamic_lstm(embed, sequence_lengths, hyperparameters):
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
     initial_state, cell = build_lstm_cell(num_units, keep_prob, batch_size)
-    embed = tf.expand_dims(embed, axis=0) # assuming input is one datapoint
-    embed = tf.cast(embed,tf.float32) # assuming input is one datapoint
+    embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_state = tf.nn.dynamic_rnn(cell = cell, inputs = embed, sequence_length = sequence_lengths, initial_state = initial_state)
     return lstm_outputs, final_state
 
@@ -33,8 +32,7 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     batch_size = hyperparameters.batch_size
     initial_fw_state, fw_cell = build_lstm_cell(num_units, keep_prob, batch_size)
     initial_bw_state, bw_cell = build_lstm_cell(num_units, keep_prob, batch_size)
-    # embed = tf.expand_dims(embed, axis=0) # assuming input is one datapoint
-    embed = tf.cast(embed,tf.float32) # assuming input is one datapoint
+    embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_fw_state, final_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                                                         cells_fw = [fw_cell], 
                                                         cells_bw = [bw_cell], 

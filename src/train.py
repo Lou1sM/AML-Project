@@ -9,7 +9,7 @@ parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs 
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 parser.add_argument("--num_units", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=1, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=10, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
@@ -18,24 +18,22 @@ ARGS = parser.parse_args()
 
 input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
-dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
-#dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels)).batch(ARGS.batch_size)
+# dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
+dataset = tf.data.Dataset.from_tensor_slices(
+		(input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths)
+	).batch(ARGS.batch_size)
+
 iterator = dataset.make_initializable_iterator()
 init = iterator.make_initializer(dataset)
-d, q, a = iterator.get_next()
-
-# Delete the 3 lines below when moving to batches, now it is adapted for 1 datapoint
-documents_lengths = documents_lengths[:1]
-questions_lengths = questions_lengths[:1]
-ground_truth_labels = ground_truth_labels[:1]
+d, q, a, doc_l, que_l = iterator.get_next()
 
 encoded = encoder.encoder(
 					document=d,
 					question=q,
-					documents_lengths = documents_lengths,
-					questions_lengths = questions_lengths,
+					documents_lengths = doc_l,
+					questions_lengths = que_l,
                     hyperparameters = ARGS
-					)
+				)
 
 '''
 # Testing code
@@ -47,9 +45,9 @@ new_ground_truth_labels = tf.random.uniform([2, batch_size, 600])
 batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
 
 # Create single nodes for labels
-ground_truth_labels = tf.transpose(ground_truth_labels)
-start_labels = tf.squeeze(tf.gather(ground_truth_labels, [0]), [0])
-end_labels = tf.squeeze(tf.gather(ground_truth_labels, [1]), [0])
+a = tf.transpose(a)
+start_labels = tf.squeeze(tf.gather(a, [0]), [0])
+end_labels = tf.squeeze(tf.gather(a, [1]), [0])
 start_labels = tf.one_hot(start_labels, 766)
 end_labels = tf.one_hot(end_labels, 766)
 
