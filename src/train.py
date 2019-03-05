@@ -18,6 +18,7 @@ ARGS = parser.parse_args()
 input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
 dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
+#dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels)).batch(ARGS.batch_size)
 iterator = dataset.make_initializable_iterator()
 d, q, a = iterator.get_next()
 
@@ -76,6 +77,7 @@ for i in range(4):
     # Make an estimation of start- and end-points. Define the
     # set of graph nodes for the HMN twice in two different namespaces
     # so that two copies are created and they can be trained separately
+
     with tf.variable_scope('start_estimator'):
         alphas = highway_max_out.HMN(
             current_words=encoded,
@@ -84,7 +86,8 @@ for i in range(4):
             prev_end_point_guess=u_e,
             name="HMN_start"
         )
-    alphas = tf.squeeze(tf.transpose(alphas), [0])
+
+    #alphas = tf.squeeze(tf.transpose(alphas), [0])
 
     with tf.variable_scope('end_estimator'):
         betas = highway_max_out.HMN(
@@ -94,7 +97,7 @@ for i in range(4):
             prev_end_point_guess=u_e,
             name="HMN_end"
         )
-    betas = tf.squeeze(tf.transpose(betas), [0])
+    #betas = tf.squeeze(tf.transpose(betas), [0])
 
     s = tf.argmax(alphas, axis=1, output_type=tf.int32)
     s_indices = tf.transpose(tf.stack([s, batch_indices]))
@@ -106,6 +109,8 @@ for i in range(4):
 
     # Define loss and optimizer, each guess contributes to loss,
     # even the very first
+    print('alphas:', alphas.get_shape())
+    print('start_labels:', start_labels.get_shape())
     s_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
         labels=start_labels,
         logits=alphas
