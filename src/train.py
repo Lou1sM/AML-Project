@@ -24,8 +24,8 @@ with tf.name_scope("data_prep"):
 
     d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0]), len(input_d_vecs[0][0])])
     q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0]), len(input_q_vecs[0][0])])
-    start_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
-    end_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
+    starting_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
+    ending_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
 
@@ -43,8 +43,8 @@ with tf.name_scope("encoder"):
     # start_labels = tf.squeeze(tf.gather(a, [0]), [0])
     # end_labels = tf.squeeze(tf.gather(a, [1]), [0])
 
-    start_labels = tf.one_hot(start_labels, 766)
-    end_labels = tf.one_hot(end_labels, 766)
+    start_labels = tf.one_hot(starting_labels, 766)
+    end_labels = tf.one_hot(ending_labels, 766)
 
 with tf.name_scope("decoder"):
     # Static tensor to be re-used in main loop iterations
@@ -151,7 +151,7 @@ with tf.Session() as sess:
     batch_size = ARGS.batch_size
     #for i in range(ARGS.num_epochs):
     for i in range(100):
-        feed_dict = {d: input_d_vecs[:batch_size], q: input_q_vecs[:batch_size], end_labels: end_l[:batch_size], start_labels: start_l[:batch_size], doc_l: documents_lengths[:batch_size], que_l: questions_lengths[:batch_size]}
+        feed_dict = {d: input_d_vecs[:batch_size], q: input_q_vecs[:batch_size], ending_labels: end_l[:batch_size], starting_labels: start_l[:batch_size], doc_l: documents_lengths[:batch_size], que_l: questions_lengths[:batch_size]}
         for _ in range(1):  # for now
             summary, _, loss_val = sess.run([merged, train_step, loss], feed_dict)
             print(loss_val)
