@@ -155,5 +155,5 @@ with tf.Session() as sess:
         for _ in range(1):  # for now
             summary, _, loss_val = sess.run([merged, train_step, loss], feed_dict)
             print(loss_val)
-       # currently write summary for each epoch
-        writer.add_summary(summary, i)
+            # currently write summary for each epoch
+            writer.add_summary(summary, i)
