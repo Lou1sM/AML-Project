@@ -150,10 +150,16 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     batch_size = ARGS.batch_size
     #for i in range(ARGS.num_epochs):
-    for i in range(100):
-        feed_dict = {d: input_d_vecs[:batch_size], q: input_q_vecs[:batch_size], ending_labels: end_l[:batch_size], starting_labels: start_l[:batch_size], doc_l: documents_lengths[:batch_size], que_l: questions_lengths[:batch_size]}
-        for _ in range(1):  # for now
+    for i in range(2):
+        data_len = len(input_d_vecs)
+        j = 0
+        while(j + batch_size < data_len):
+            feed_dict = {d: input_d_vecs[j: j + batch_size], q: input_q_vecs[j : j + batch_size], 
+            ending_labels: end_l[j : j + batch_size], starting_labels: start_l[j : j + batch_size], 
+            doc_l: documents_lengths[j : j + batch_size], que_l: questions_lengths[j : j + batch_size]}
             summary, _, loss_val = sess.run([merged, train_step, loss], feed_dict)
             print(loss_val)
-            # currently write summary for each epoch
+           # currently write summary for each epoch
             writer.add_summary(summary, i)
+            j = j + batch_size
+
