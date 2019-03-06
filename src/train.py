@@ -17,6 +17,8 @@ parser.add_argument("--learning_rate", default=1e-3, type=float, help="Learning 
 ARGS = parser.parse_args()
 
 input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
+start_l = list(map(lambda x: x[0], ground_truth_labels))
+end_l = list(map(lambda x: x[1], ground_truth_labels))
 
 # dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
 # feed_dict = {d: input_d_vecs, q: input_q_vecs, a: ground_truth_labels, doc_l: documents_lengths, que_l: questions_lengths}
@@ -31,7 +33,8 @@ input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_le
 
 d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0]), len(input_d_vecs[0][0])])
 q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0]), len(input_q_vecs[0][0])])
-a = tf.placeholder(tf.int64, [ARGS.batch_size, len(ground_truth_labels[0])])
+start_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
+end_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
 doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
 que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
 
@@ -53,12 +56,12 @@ new_ground_truth_labels = tf.random.uniform([2, batch_size, 600])
 batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
 
 # Create single nodes for labels
-a = tf.transpose(a)
-start_labels = tf.squeeze(tf.gather(a, [0]), [0])
-end_labels = tf.squeeze(tf.gather(a, [1]), [0])
+# a = tf.transpose(a)
+# start_labels = tf.squeeze(tf.gather(a, [0]), [0])
+# end_labels = tf.squeeze(tf.gather(a, [1]), [0])
+
 start_labels = tf.one_hot(start_labels, 766)
 end_labels = tf.one_hot(end_labels, 766)
-
 # Create and initialize decoding LSTM
 decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
     num_layers=1,
@@ -157,8 +160,9 @@ with tf.Session() as sess:
     #for i in range(ARGS.num_epochs):
     for i in range(100):
         sess.run(init)
-        feed_dict = {d: input_d_vecs[:batch_size], q: input_q_vecs[:batch_size], a: ground_truth_labels[:batch_size], doc_l: documents_lengths[:batch_size], que_l: questions_lengths[:batch_size]}
+        feed_dict = {d: input_d_vecs[:batch_size], q: input_q_vecs[:batch_size], end_labels: end_l[:batch_size], start_labels: start_l[:batch_size], doc_l: documents_lengths[:batch_size], que_l: questions_lengths[:batch_size]}
         for _ in range(1):  # for now
+
             summary, _, loss_val = sess.run([merged, train_step, loss], feed_dict)
             print(loss_val)
        # currently write summary for each epoch
