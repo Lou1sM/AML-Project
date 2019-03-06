@@ -102,7 +102,8 @@ def save_embeddings(type_of_embeddings):
 		answers = []
 		lengths_doc = []
 		lengths_que = []
-		for i in range(10):
+		# for i in range(len(data_array)):
+		for i in range(1000):
 			doc = list.copy(data_array[i][0])
 			que = list.copy(data_array[i][1])
 			pad = gloveDimension * [0.0]
@@ -114,21 +115,20 @@ def save_embeddings(type_of_embeddings):
 			documents.append(doc)
 			questions.append(que)
 			answers.append(ans)
-		documents = np.array(documents)
-		print('doc done')
-		questions = np.array(questions)
-		print('que done')
-		answers = np.array(answers)
-		print('ans done')
-		lengths_doc = np.array(lengths_doc)
-		lengths_que = np.array(lengths_que)
+		# documents = np.array(documents)
+		# print('doc done')
+		# questions = np.array(questions)
+		# print('que done')
+		# answers = np.array(answers)
+		# print('ans done')
+		# lengths_doc = np.array(lengths_doc)
+		# lengths_que = np.array(lengths_que)
 		data_array = [[documents, questions, answers], [lengths_doc, lengths_que]]
 	else:
-		documents = np.asarray(list(map (lambda x: np.array(x[0]), data_array)))
-		questions = np.asarray(list(map (lambda x: np.array(x[1]), data_array)))
-		answers = np.asarray(list(map (lambda x: np.array(x[2]), data_array)))
+		documents = list(map (lambda x: np.array(x[0]), data_array))
+		questions = list(map (lambda x: np.array(x[1]), data_array))
+		answers = list(map (lambda x: np.array(x[2]), data_array))
 		data_array = [documents,questions,answers] 
-
 	np.save('data/'+type_of_embeddings, data_array)
 
 # the types are 'padded_train_data', 'unpadded_train_data', 'padded_test_data', 'unpadded_test_data'
