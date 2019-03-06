@@ -32,8 +32,8 @@ input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_le
 d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0])])
 q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0])])
 a = tf.placeholder(tf.float64, [ARGS.batch_size, len(ground_truth_labels[0])])
-documents_lengths = tf.placeholder(tf.float64, [ARGS.batch_size, len(documents_lengths[0])])
-questions_lengths = tf.placeholder(tf.float64, [ARGS.batch_size, len(questions_lengths[0])])
+documents_lengths = tf.placeholder(tf.float64, [ARGS.batch_size])
+questions_lengths = tf.placeholder(tf.float64, [ARGS.batch_size])
 
 encoded = encoder.encoder(
 					document=d,
