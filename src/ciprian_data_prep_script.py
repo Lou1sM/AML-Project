@@ -16,4 +16,4 @@ def get_data():
         answers = data_array[0][2]
         lengths_documents = data_array[1][0]
         lengths_questions = data_array[1][1]
-        return documents, questions, answers, lengths_documents, lengths_questions 
+        return documents[:100], questions[:100], answers[:100], lengths_documents[:100], lengths_questions[:100] 

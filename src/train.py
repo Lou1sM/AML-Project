@@ -19,13 +19,21 @@ ARGS = parser.parse_args()
 input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
 
 # dataset = tf.data.Dataset.from_tensor_slices((input_d_vecs,input_q_vecs, ground_truth_labels))
-dataset = tf.data.Dataset.from_tensor_slices(
-		(input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths)
-	).batch(ARGS.batch_size)
+# feed_dict = {d: input_d_vecs, q: input_q_vecs, a: ground_truth_labels, doc_l: documents_lengths, que_l: questions_lengths}
+# dataset = tf.data.Dataset.from_tensor_slices(
+# 		(input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths)
+# 	).batch(ARGS.batch_size)
 
-iterator = dataset.make_initializable_iterator()
-init = iterator.make_initializer(dataset)
-d, q, a, doc_l, que_l = iterator.get_next()
+# iterator = dataset.make_initializable_iterator()
+# init = iterator.make_initializer(dataset)
+# d, q, a, doc_l, que_l = iterator.get_next()
+
+
+d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0])])
+q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0])])
+a = tf.placeholder(tf.float64, [ARGS.batch_size, len(ground_truth_labels[0])])
+documents_lengths = tf.placeholder(tf.float64, [ARGS.batch_size, len(documents_lengths[0])])
+questions_lengths = tf.placeholder(tf.float64, [ARGS.batch_size, len(questions_lengths[0])])
 
 encoded = encoder.encoder(
 					document=d,
@@ -145,12 +153,13 @@ writer.add_graph(tf.get_default_graph())
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-
+    batch_size = ARGS.batch_size
     #for i in range(ARGS.num_epochs):
     for i in range(100):
         sess.run(init)
+        feed_dict = {d: input_d_vecs[:batch_size], q: input_q_vecs[:batch_size], a: ground_truth_labels[:batch_size], doc_l: documents_lengths[:batch_size], que_l: questions_lengths[:batch_size]}
         for _ in range(1):  # for now
-            summary, _, loss_val = sess.run([merged, train_step, loss])
+            summary, _, loss_val = sess.run([merged, train_step, loss], feed_dict)
             print(loss_val)
        # currently write summary for each epoch
         writer.add_summary(summary, i)
