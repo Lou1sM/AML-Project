@@ -5,9 +5,16 @@ import ciprian_data_prep_script
 import argparse
 import time
 import datetime
-
+import os
+import utils
 
 start_time = time.time()
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import logging
+logging.getLogger('tensorflow').setLevel(50)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
@@ -21,6 +28,7 @@ parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hi
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=1e-3, type=float, help="Learning rate.")
 ARGS = parser.parse_args()
+
 
 with tf.name_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
@@ -45,10 +53,6 @@ with tf.name_scope("encoder"):
     )
 
     # Create single nodes for labels
-    # a = tf.transpose(a)
-    # start_labels = tf.squeeze(tf.gather(a, [0]), [0])
-    # end_labels = tf.squeeze(tf.gather(a, [1]), [0])
-
     start_labels = tf.one_hot(starting_labels, 766)
     end_labels = tf.one_hot(ending_labels, 766)
 
@@ -98,8 +102,6 @@ with tf.name_scope("decoder"):
                     name="HMN_start"
                 )
 
-            # alphas = tf.squeeze(tf.transpose(alphas), [0])
-
             with tf.variable_scope('end_estimator'):
                 betas = highway_max_out.HMN(
                     current_words=encoded,
@@ -109,7 +111,6 @@ with tf.name_scope("decoder"):
                     hyperparameters=ARGS,
                     name="HMN_end"
                 )
-            # betas = tf.squeeze(tf.transpose(betas), [0])
 
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_indices = tf.transpose(tf.stack([s, batch_indices]))
@@ -119,10 +120,8 @@ with tf.name_scope("decoder"):
             e_indices = tf.transpose(tf.stack([e, batch_indices]))
             u_e = tf.gather_nd(encoded, e_indices)
 
-            # Define loss and optimizer, each guess contributes to loss,
+            # Each guess contributes to loss,
             # even the very first
-            print('alphas:', alphas.get_shape())
-            print('start_labels:', start_labels.get_shape())
             s_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
                 labels=start_labels,
                 logits=alphas
@@ -138,12 +137,9 @@ with tf.name_scope("decoder"):
 
             loss = iteration_loss if i == 0 else loss + iteration_loss
 
-# Keep track of loss
 mean_loss = tf.reduce_mean(loss)
 tf.summary.scalar('total_loss', mean_loss)
-
-# Set up learning process
-optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)  # They don't give learning rate!
+optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
 # For Tensorboard
@@ -161,14 +157,8 @@ with tf.Session() as sess:
     batch_size = ARGS.batch_size
     #for i in range(ARGS.num_epochs):
     train_start_time = time.time()
-    print("Time elapsed from beginning until right before starting train is: ", train_start_time - start_time)
+    print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
     for i in range(100):
-        input_d_vecs.reverse()
-        input_q_vecs.reverse()
-        end_l.reverse()
-        start_l.reverse()
-        documents_lengths.reverse()
-        questions_lengths.reverse()
 
         data_len = len(input_d_vecs)
         j = 0
@@ -192,7 +182,7 @@ with tf.Session() as sess:
 
     train_end_time = time.time()
 
-    print("Total training time (without data reading): ", train_end_time - train_start_time)
+    print("Total training time (without data reading): ", utils.time_format(train_end_time - train_start_time))
 
     save_path = saver.save(sess, "/tmp/model.ckpt")
     print("Model saved in path: %s" % save_path)
