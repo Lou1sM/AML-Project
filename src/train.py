@@ -2,6 +2,7 @@ import tensorflow as tf
 import highway_max_out
 import encoder
 import ciprian_data_prep_script
+import tfrecord_converter
 import argparse
 import time
 import datetime
@@ -31,20 +32,35 @@ parser.add_argument("--short_test", "-s", default=False, action="store_true", he
 
 ARGS = parser.parse_args()
 
-
+"""
 with tf.name_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
     print("In train.py: get_data finished.")
     start_l = list(map(lambda x: x[0], ground_truth_labels))
     end_l = list(map(lambda x: x[1], ground_truth_labels))
-
     d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0]), len(input_d_vecs[0][0])])
     q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0]), len(input_q_vecs[0][0])])
     starting_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     ending_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
+"""
 
+dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
+#dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
+dataset = dataset.batch(ARGS.batch_size)
+iter_ = dataset.make_initializable_iterator()
+dd = iter_.get_next()
+print(dd)
+print(type(dd))
+d = dd['D']
+q = dd['Q']
+a = dd['A']
+doc_l = dd['DL']
+que_l = dd['QL']
+
+print(d.get_shape())
+print(q.get_shape())
 with tf.name_scope("encoder"):
     encoded = encoder.encoder(
         document=d,
@@ -53,10 +69,12 @@ with tf.name_scope("encoder"):
         questions_lengths=que_l,
         hyperparameters=ARGS
     )
-
+    print('enc', encoded.get_shape())
     # Create single nodes for labels
-    start_labels = tf.one_hot(starting_labels, 766)
-    end_labels = tf.one_hot(ending_labels, 766)
+    print(a.get_shape())
+    print(a[0].get_shape())
+    start_labels = tf.one_hot(a[:,0], 766)
+    end_labels = tf.one_hot(a[:,1], 766)
 
 with tf.name_scope("decoder"):
     # Static tensor to be re-used in main loop iterations
@@ -75,7 +93,7 @@ with tf.name_scope("decoder"):
         for i in range(4):
             # LSTM input is concatenation of previous guesses
             usue = tf.concat([u_s, u_e], axis=1)
-
+            print('usue', usue.get_shape())
             # CudnnLSTM expects input with shape [time_len, batch_size, input_size]
             # As the inputs across time depend on the previous outputs, we simply set
             # time_len = 0 and repeat the calculation multiple times while setting
@@ -124,6 +142,8 @@ with tf.name_scope("decoder"):
 
             # Each guess contributes to loss,
             # even the very first
+            print('start_labels:', start_labels.get_shape())
+            print('alphas:', alphas.get_shape())
             s_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
                 labels=start_labels,
                 logits=alphas
@@ -161,32 +181,14 @@ with tf.Session() as sess:
     train_start_time = time.time()
     print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
     for i in range(ARGS.num_epochs):
+        while True:
+            try:
+                summary, _, loss_val, meanloss = sess.run([merged, train_step, loss, mean_loss], feed_dict)
+                print("Epoch: ", i, ", Batch: ",j,", Loss: ",meanloss)
+            except tf.errors.OutOfRangeError:
+                writer.add_summary(summary, i)
+                break
 
-        data_len = len(input_d_vecs)
-        j = 0
-        if ARGS.short_test:
-            end = batch_size+1
-        elif ARGS.test:
-            end = int(data_len/100)
-        else:
-            end = data_len
-        while(j + batch_size < end):
-
-            feed_dict = {
-                d: input_d_vecs[j: j + batch_size], 
-                q: input_q_vecs[j : j + batch_size], 
-                ending_labels: end_l[j : j + batch_size], 
-                starting_labels: start_l[j : j + batch_size], 
-                doc_l: documents_lengths[j : j + batch_size], 
-                que_l: questions_lengths[j : j + batch_size]
-            }
-
-            summary, _, loss_val, meanloss = sess.run([merged, train_step, loss, mean_loss], feed_dict)
-            print("Epoch: ", i, ", Batch: ",j,", Loss: ",meanloss)
-            print("_______________________________________")
-           # currently write summary for each epoch
-            writer.add_summary(summary, i)
-            j = j + batch_size
     train_end_time = time.time()
 
     print("Total training time (without data reading): ", utils.time_format(train_end_time - train_start_time))

@@ -1,11 +1,14 @@
 import numpy as np
 import tensorflow as tf
 
-def array_to_tfrecords(D, Q, A, output_file):
+def array_to_tfrecords(D, Q, A, DL, QL, output_file):
     feature = {
         'D': tf.train.Feature(float_list=tf.train.FloatList(value=D.flatten())),
         'Q': tf.train.Feature(float_list=tf.train.FloatList(value=Q.flatten())),
-        'A': tf.train.Feature(float_list=tf.train.FloatList(value=A.flatten()))
+        'A': tf.train.Feature(int64_list=tf.train.Int64List(value=A.flatten())),
+        'DL': tf.train.Feature(int64_list=tf.train.Int64List(value=DL.flatten())),
+        'QL': tf.train.Feature(int64_list=tf.train.Int64List(value=QL.flatten()))
+
     }
     example = tf.train.Example(features=tf.train.Features(feature=feature))
     serialized = example.SerializeToString()
@@ -19,21 +22,25 @@ def parse_proto(example_proto, d_shape=(640,766,50), q_shape=(640,60,50), a_shap
     features = {
         'D': tf.FixedLenFeature((d_shape), tf.float32),
         'Q': tf.FixedLenFeature((q_shape), tf.float32),
-        'A': tf.FixedLenFeature((a_shape), tf.float32),
+        'A': tf.FixedLenFeature((a_shape), tf.int64),
+        'DL': tf.FixedLenFeature((640), tf.int64),
+        'QL': tf.FixedLenFeature((640), tf.int64)
     }
     parsed_features = tf.parse_single_example(example_proto, features)
-    return parsed_features['D'], parsed_features['Q'], parsed_features['A']
+    return parsed_features
+    return parsed_features['D'], parsed_features['Q'], parsed_features['A'], parsed_features['DL'], parsed_features['QL']
 
 def read_tfrecords(file_names,
-                   img_shapes,
+                   img_shapes=None,
                    buffer_size=100,
                    batch_size=32,
                    ):
     dataset = tf.data.TFRecordDataset(file_names)
     dataset = dataset.map(lambda x: parse_proto(x))
+    dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensor_slices(x))
     dataset = dataset.shuffle(buffer_size)
     #dataset = dataset.repeat()
-    dataset = dataset.batch(batch_size)
+    #dataset = dataset.batch(batch_size)
     return dataset
 # Allows same dataset object to be initialized with different datasets, could maybe
 # be useful in future
@@ -49,9 +56,13 @@ if __name__ == "__main__":
     D = data[0][0]
     Q = data[0][1]
     A = data[0][2]
+    print(A[0])
+    DL = data[1][0]
+    QL = data[1][1]
+    print(type(QL[0]))
     print(D.shape)
     print(Q.shape)
-    array_to_tfrecords(D=D, Q=Q, A=A, output_file="test.tfrecord")
+    array_to_tfrecords(D=D, Q=Q, A=A, DL=DL, QL=QL, output_file="test.tfrecord")
     """
     for i in range(100):
         sliced_data = data[:,100*i:100*(i+1),:,:]
@@ -61,7 +72,7 @@ if __name__ == "__main__":
     #filelist = ["/home/louis/datasets/moving_mnist/tfrecords/file{}.tfrecord".format(i) for i in range(1,101)]
     recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(8192000,))
     iter_ = recovered.make_initializable_iterator()
-    d_tensor, q_tensor, a_tensor = iter_.get_next()
+    d_tensor, q_tensor, a_tensor, dl, ql = iter_.get_next()
     print(d_tensor.get_shape())
     init = iter_.initializer
 
