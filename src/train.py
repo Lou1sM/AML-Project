@@ -3,12 +3,17 @@ import highway_max_out
 import encoder
 import ciprian_data_prep_script
 import argparse
+import time
 import datetime
+
+
+start_time = time.time()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
-parser.add_argument("--num_units", default=200, type=int, help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+parser.add_argument("--num_units", default=200, type=int, 
+	help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=10, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
@@ -19,6 +24,7 @@ ARGS = parser.parse_args()
 
 with tf.name_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
+    print("In train.py: get_data finished.")
     start_l = list(map(lambda x: x[0], ground_truth_labels))
     end_l = list(map(lambda x: x[1], ground_truth_labels))
 
@@ -88,6 +94,7 @@ with tf.name_scope("decoder"):
                     lstm_hidden_state=lstm_output_reshaped,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
+                    hyperparameters=ARGS,
                     name="HMN_start"
                 )
 
@@ -99,6 +106,7 @@ with tf.name_scope("decoder"):
                     lstm_hidden_state=lstm_output_reshaped,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
+                    hyperparameters=ARGS,
                     name="HMN_end"
                 )
             # betas = tf.squeeze(tf.transpose(betas), [0])
@@ -146,20 +154,46 @@ tf.gfile.MkDir(summaryDirectory)
 writer = tf.summary.FileWriter(summaryDirectory)
 writer.add_graph(tf.get_default_graph())
 
+saver = tf.train.Saver()
+
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     batch_size = ARGS.batch_size
     #for i in range(ARGS.num_epochs):
-    for i in range(2):
+    train_start_time = time.time()
+    print("Time elapsed from beginning until right before starting train is: ", train_start_time - start_time)
+    for i in range(100):
+        input_d_vecs.reverse()
+        input_q_vecs.reverse()
+        end_l.reverse()
+        start_l.reverse()
+        documents_lengths.reverse()
+        questions_lengths.reverse()
+
         data_len = len(input_d_vecs)
         j = 0
         while(j + batch_size < data_len):
-            feed_dict = {d: input_d_vecs[j: j + batch_size], q: input_q_vecs[j : j + batch_size], 
-            ending_labels: end_l[j : j + batch_size], starting_labels: start_l[j : j + batch_size], 
-            doc_l: documents_lengths[j : j + batch_size], que_l: questions_lengths[j : j + batch_size]}
-            summary, _, loss_val = sess.run([merged, train_step, loss], feed_dict)
-            print(loss_val)
+
+            feed_dict = {
+                d: input_d_vecs[j: j + batch_size], 
+                q: input_q_vecs[j : j + batch_size], 
+                ending_labels: end_l[j : j + batch_size], 
+                starting_labels: start_l[j : j + batch_size], 
+                doc_l: documents_lengths[j : j + batch_size], 
+                que_l: questions_lengths[j : j + batch_size]
+            }
+
+            summary, _, loss_val, meanloss = sess.run([merged, train_step, loss, mean_loss], feed_dict)
+            print("Epoch: ", i, ", Batch: ",j,", Loss: ",meanloss)
+            print("_______________________________________")
            # currently write summary for each epoch
             writer.add_summary(summary, i)
             j = j + batch_size
+
+    train_end_time = time.time()
+
+    print("Total training time (without data reading): ", train_end_time - train_start_time)
+
+    save_path = saver.save(sess, "/tmp/model.ckpt")
+    print("Model saved in path: %s" % save_path)
 

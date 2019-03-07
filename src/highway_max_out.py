@@ -10,8 +10,8 @@ pool_size=32
 dummy = tf.random.uniform([32,600,400])
 #print(dummy)
 
-def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess, name):
-
+def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess, hyperparameters, name):
+    h_size = hyperparameters.num_units
     current_words = tf.transpose(current_words, perm=[1,0,2])
     with tf.name_scope(name):
 

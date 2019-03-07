@@ -10,10 +10,11 @@ def get_data():
             data_array = np.load(filename)
         except:
             data_array = np.load('../data/padded_train_data.npy')
-        print(data_array.shape)
+        print("Get Data stage: ciprian_data_prep read ", filename, " of shape: ", data_array.shape)
         documents = data_array[0][0]
         questions = data_array[0][1]
         answers = data_array[0][2]
         lengths_documents = data_array[1][0]
         lengths_questions = data_array[1][1]
-        return documents[:100], questions[:100], answers[:100], lengths_documents[:100], lengths_questions[:100] 
+        size = 4000
+        return documents[:size], questions[:size], answers[:size], lengths_documents[:size], lengths_questions[:size] 
