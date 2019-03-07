@@ -27,6 +27,8 @@ parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, he
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=1e-3, type=float, help="Learning rate.")
+parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
+
 ARGS = parser.parse_args()
 
 
@@ -158,11 +160,17 @@ with tf.Session() as sess:
     #for i in range(ARGS.num_epochs):
     train_start_time = time.time()
     print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
-    for i in range(100):
+    for i in range(ARGS.num_epochs):
 
         data_len = len(input_d_vecs)
         j = 0
-        while(j + batch_size < data_len):
+        if ARGS.short_test:
+            end = batch_size+1
+        elif ARGS.test:
+            end = int(data_len/100)
+        else:
+            end = data_len
+        while(j + batch_size < end):
 
             feed_dict = {
                 d: input_d_vecs[j: j + batch_size], 
@@ -179,7 +187,6 @@ with tf.Session() as sess:
            # currently write summary for each epoch
             writer.add_summary(summary, i)
             j = j + batch_size
-
     train_end_time = time.time()
 
     print("Total training time (without data reading): ", utils.time_format(train_end_time - train_start_time))
