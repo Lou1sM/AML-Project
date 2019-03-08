@@ -197,6 +197,6 @@ with tf.Session() as sess:
 
     print("Total training time (without data reading): ", utils.time_format(train_end_time - train_start_time))
 
-    save_path = saver.save(sess, "/tmp/model.ckpt")
-    print("Model saved in path: %s" % save_path)
+    #save_path = saver.save(sess, "/tmp/model.ckpt")
+    #print("Model saved in path: %s" % save_path)
 
