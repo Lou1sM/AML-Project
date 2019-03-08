@@ -77,9 +77,8 @@ with tf.name_scope("decoder"):
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
 
     # Create and initialize decoding LSTM
-    decoding_lstm = tf.contrib.cudnn_rnn.CudnnLSTM(
-        num_layers=1,
-        num_units=ARGS.hidden_size)
+    decoding_lstm = tf.contrib.rnn.LSTMCell(num_units=ARGS.hidden_size)
+    h = decoding_lstm.zero_state(ARGS.batch_size, dtype=tf.float32)
 
     # first guess for start- and end-points
     u_s = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size])  # Dummy guess start point
@@ -96,13 +95,7 @@ with tf.name_scope("decoder"):
             # similarly time-major (has a first dimension that spans time).
 
             # an initial_state of None corresponds to initialisation with zeroes
-            with tf.variable_scope("decoding_lstm", reuse=tf.AUTO_REUSE):
-                lstm_output, h = decoding_lstm(
-                    inputs=tf.expand_dims(input=usue, axis=0),
-                    initial_state=None if i == 0 else h,
-                    training=True)
-                lstm_output_reshaped = tf.squeeze(lstm_output, [0])
-
+            lstm_output, h = decoding_lstm(inputs=usue, state=h)
             # Make an estimation of start- and end-points. Define the
             # set of graph nodes for the HMN twice in two different namespaces
             # so that two copies are created and they can be trained separately
@@ -110,7 +103,7 @@ with tf.name_scope("decoder"):
             with tf.variable_scope('start_estimator'):
                 alphas = highway_max_out.HMN(
                     current_words=encoded,
-                    lstm_hidden_state=lstm_output_reshaped,
+                    lstm_hidden_state=lstm_output,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
                     hyperparameters=ARGS,
@@ -120,7 +113,7 @@ with tf.name_scope("decoder"):
             with tf.variable_scope('end_estimator'):
                 betas = highway_max_out.HMN(
                     current_words=encoded,
-                    lstm_hidden_state=lstm_output_reshaped,
+                    lstm_hidden_state=lstm_output,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
                     hyperparameters=ARGS,
@@ -168,12 +161,9 @@ writer.add_graph(tf.get_default_graph())
 saver = tf.train.Saver()
 
 with tf.Session() as sess:
-    # add additional options to trace the session execution
     options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
     run_metadata = tf.RunMetadata()
     sess.run(tf.global_variables_initializer(), options=options, run_metadata=run_metadata)
-
-    # Create the Timeline object, and write it to a json file
     fetched_timeline = timeline.Timeline(run_metadata.step_stats)
     chrome_trace = fetched_timeline.generate_chrome_trace_format()
     with open('timeline_01.json', 'w') as f:
@@ -188,7 +178,6 @@ with tf.Session() as sess:
         while True:
             try:
                 summary, _, loss_val = sess.run([merged, train_step, mean_loss])
-                break
             except tf.errors.OutOfRangeError:
                 writer.add_summary(summary, i)
                 break
