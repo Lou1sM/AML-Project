@@ -8,6 +8,7 @@ import time
 import datetime
 import os
 import utils
+from tensorflow.python.client import timeline
 
 start_time = time.time()
 
@@ -167,7 +168,19 @@ writer.add_graph(tf.get_default_graph())
 saver = tf.train.Saver()
 
 with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
+    # add additional options to trace the session execution
+    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+    run_metadata = tf.RunMetadata()
+    sess.run(tf.global_variables_initializer(), options=options, run_metadata=run_metadata)
+
+    # Create the Timeline object, and write it to a json file
+    fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+    chrome_trace = fetched_timeline.generate_chrome_trace_format()
+    with open('timeline_01.json', 'w') as f:
+        f.write(chrome_trace)
+
+
+    #sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
     print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
     for i in range(ARGS.num_epochs):
@@ -175,6 +188,7 @@ with tf.Session() as sess:
         while True:
             try:
                 summary, _, loss_val = sess.run([merged, train_step, mean_loss])
+                break
             except tf.errors.OutOfRangeError:
                 writer.add_summary(summary, i)
                 break
