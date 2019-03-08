@@ -50,17 +50,14 @@ dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
 #dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
 dataset = dataset.batch(ARGS.batch_size)
 iter_ = dataset.make_initializable_iterator()
-dd = iter_.get_next()
-print(dd)
-print(type(dd))
-d = dd['D']
-q = dd['Q']
-a = dd['A']
-doc_l = dd['DL']
-que_l = dd['QL']
 
-print(d.get_shape())
-print(q.get_shape())
+data_dict = iter_.get_next()
+d = data_dict['D']
+q = data_dict['Q']
+a = data_dict['A']
+doc_l = data_dict['DL']
+que_l = data_dict['QL']
+
 with tf.name_scope("encoder"):
     encoded = encoder.encoder(
         document=d,
@@ -69,10 +66,8 @@ with tf.name_scope("encoder"):
         questions_lengths=que_l,
         hyperparameters=ARGS
     )
-    print('enc', encoded.get_shape())
     # Create single nodes for labels
-    print(a.get_shape())
-    print(a[0].get_shape())
+
     start_labels = tf.one_hot(a[:,0], 766)
     end_labels = tf.one_hot(a[:,1], 766)
 
@@ -93,7 +88,6 @@ with tf.name_scope("decoder"):
         for i in range(4):
             # LSTM input is concatenation of previous guesses
             usue = tf.concat([u_s, u_e], axis=1)
-            print('usue', usue.get_shape())
             # CudnnLSTM expects input with shape [time_len, batch_size, input_size]
             # As the inputs across time depend on the previous outputs, we simply set
             # time_len = 0 and repeat the calculation multiple times while setting
@@ -142,8 +136,6 @@ with tf.name_scope("decoder"):
 
             # Each guess contributes to loss,
             # even the very first
-            print('start_labels:', start_labels.get_shape())
-            print('alphas:', alphas.get_shape())
             s_loss = tf.nn.softmax_cross_entropy_with_logits_v2(
                 labels=start_labels,
                 logits=alphas
@@ -176,15 +168,13 @@ saver = tf.train.Saver()
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-    batch_size = ARGS.batch_size
-    #for i in range(ARGS.num_epochs):
     train_start_time = time.time()
     print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
     for i in range(ARGS.num_epochs):
+        sess.run(iter_.initializer)
         while True:
             try:
-                summary, _, loss_val, meanloss = sess.run([merged, train_step, loss, mean_loss], feed_dict)
-                print("Epoch: ", i, ", Batch: ",j,", Loss: ",meanloss)
+                summary, _, loss_val = sess.run([merged, train_step, mean_loss])
             except tf.errors.OutOfRangeError:
                 writer.add_summary(summary, i)
                 break
