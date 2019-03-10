@@ -168,11 +168,11 @@ with tf.Session() as sess:
     print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
     for i in range(ARGS.num_epochs):
         sess.run(iter_.initializer)
-        first_run = False
+        profileFirstBatch = False
         while True:
             try:
-                if first_run:
-                    first_run = False
+                if profileFirstBatch:
+                    profileFirstBatch = False
                     options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                     run_metadata = tf.RunMetadata()
 
