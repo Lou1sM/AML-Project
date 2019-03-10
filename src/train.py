@@ -161,23 +161,32 @@ writer.add_graph(tf.get_default_graph())
 saver = tf.train.Saver()
 
 with tf.Session() as sess:
-    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-    run_metadata = tf.RunMetadata()
-    sess.run(tf.global_variables_initializer(), options=options, run_metadata=run_metadata)
-    fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-    chrome_trace = fetched_timeline.generate_chrome_trace_format()
-    with open('timeline_01.json', 'w') as f:
-        f.write(chrome_trace)
-
+    sess.run(tf.global_variables_initializer())
 
     #sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
     print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
     for i in range(ARGS.num_epochs):
         sess.run(iter_.initializer)
+        first_run = False
         while True:
             try:
-                summary, _, loss_val = sess.run([merged, train_step, mean_loss])
+                if first_run:
+                    first_run = False
+                    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                    run_metadata = tf.RunMetadata()
+
+                    summary, _, loss_val = sess.run([merged, train_step, mean_loss],
+                                                    options=options,
+                                                    run_metadata=run_metadata)
+
+                    fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+                    chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                    with open('profiling_timeline.json', 'w') as f:
+                        f.write(chrome_trace)
+                else:
+                    summary, _, loss_val = sess.run([merged, train_step, mean_loss])
+                break
             except tf.errors.OutOfRangeError:
                 writer.add_summary(summary, i)
                 break
