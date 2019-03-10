@@ -10,8 +10,8 @@ pool_size=32
 dummy = tf.random.uniform([32,600,400])
 #print(dummy)
 
-def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess, hyperparameters, name):
-    h_size = hyperparameters.num_units
+def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess, name):
+    h_size = 200
     current_words = tf.transpose(current_words, perm=[1,0,2])
     with tf.name_scope(name):
 
@@ -59,11 +59,9 @@ def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point
 
 
 if __name__ == "__main__":
-    hmn_out = HMN(dummy, tf.random.uniform([32,200]), tf.random.uniform([32,2*h_size]), tf.random.uniform([32,2*h_size]), "dummy")
-    
-    print('output shape:', hmn_out.get_shape())
-    #sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
+    hmn_out = HMN(dummy, tf.random.uniform([32,200]), tf.random.uniform([32,2*h_size]), tf.random.uniform([32,2*h_size]), name="dummy")
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    print(sess.run(hmn_out))
+    for i in range(50):
+        sess.run(hmn_out)
 

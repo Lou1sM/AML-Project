@@ -106,7 +106,6 @@ with tf.name_scope("decoder"):
                     lstm_hidden_state=lstm_output,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
-                    hyperparameters=ARGS,
                     name="HMN_start"
                 )
 
@@ -116,7 +115,6 @@ with tf.name_scope("decoder"):
                     lstm_hidden_state=lstm_output,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
-                    hyperparameters=ARGS,
                     name="HMN_end"
                 )
 
@@ -165,7 +163,7 @@ with tf.Session() as sess:
 
     #sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
-    print("Time elapsed from beginning until right before starting train is: ", utils.time_format(train_start_time - start_time))
+    print("Graph-build time: ", utils.time_format(train_start_time - start_time))
     for i in range(ARGS.num_epochs):
         sess.run(iter_.initializer)
         profileFirstBatch = False
@@ -193,7 +191,7 @@ with tf.Session() as sess:
 
     train_end_time = time.time()
 
-    print("Total training time (without data reading): ", utils.time_format(train_end_time - train_start_time))
+    print("Train time", utils.time_format(train_end_time - train_start_time))
 
     #save_path = saver.save(sess, "/tmp/model.ckpt")
     #print("Model saved in path: %s" % save_path)
