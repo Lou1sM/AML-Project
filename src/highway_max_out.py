@@ -1,18 +1,12 @@
 import tensorflow as tf
 import numpy as np
 from utils import weight_variable, bias_variable
-
 from utils import variable_summaries
 
-h_size=200
-pool_size=32
-# Shape=(batch_size, 5*hidden_state, document_length)
-dummy = tf.random.uniform([32,600,400])
-#print(dummy)
 
-def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess, name):
-    h_size = 200
+def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess, name, pool_size, h_size):
     current_words = tf.transpose(current_words, perm=[1,0,2])
+    #print('current_words shape:', current_words.get_shape())
     with tf.name_scope(name):
 
         r = tf.concat([lstm_hidden_state, prev_start_point_guess, prev_end_point_guess], axis=1)
@@ -29,6 +23,8 @@ def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point
             b1 = bias_variable([h_size, pool_size])
             variable_summaries(b1)
             concated_words = tf.map_fn(lambda x: tf.concat([x, r], axis=1), current_words)
+            #broadcasted_prev_guesses = tf.broadcast_to(r, [current_words.get_shape().as_list()[0]] + r.get_shape().as_list())
+            #concated_words = tf.concat([current_words, broadcasted_prev_guesses], axis=2) 
             mt1 = tf.math.add(tf.tensordot(concated_words, w1, axes=[[2], [0]]), b1)
             mt1 = tf.reduce_max(mt1, reduction_indices=[3])
             #print('mt1 shape:', mt1.get_shape())
@@ -59,6 +55,7 @@ def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point
 
 
 if __name__ == "__main__":
+    dummy = tf.random.uniform([32,600,400])
     hmn_out = HMN(dummy, tf.random.uniform([32,200]), tf.random.uniform([32,2*h_size]), tf.random.uniform([32,2*h_size]), name="dummy")
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())

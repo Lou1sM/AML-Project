@@ -30,6 +30,7 @@ parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hi
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=1e-3, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
+parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 
 ARGS = parser.parse_args()
 
@@ -68,7 +69,6 @@ with tf.name_scope("encoder"):
         hyperparameters=ARGS
     )
     # Create single nodes for labels
-
     start_labels = tf.one_hot(a[:,0], 766)
     end_labels = tf.one_hot(a[:,1], 766)
 
@@ -106,6 +106,8 @@ with tf.name_scope("decoder"):
                     lstm_hidden_state=lstm_output,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
+                    pool_size=ARGS.pool_size,
+                    h_size=ARGS.num_units,
                     name="HMN_start"
                 )
 
@@ -115,6 +117,8 @@ with tf.name_scope("decoder"):
                     lstm_hidden_state=lstm_output,
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
+                    pool_size=ARGS.pool_size,
+                    h_size=ARGS.num_units,
                     name="HMN_end"
                 )
 
@@ -184,7 +188,9 @@ with tf.Session() as sess:
                         f.write(chrome_trace)
                 else:
                     summary, _, loss_val = sess.run([merged, train_step, mean_loss])
-                break
+                    print(loss_val)
+                if ARGS.test:
+                    break
             except tf.errors.OutOfRangeError:
                 writer.add_summary(summary, i)
                 break
