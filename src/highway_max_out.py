@@ -24,7 +24,7 @@ def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point
             variable_summaries(b1)
             concated_words = tf.map_fn(lambda x: tf.concat([x, r], axis=1), current_words)
             #broadcasted_prev_guesses = tf.broadcast_to(r, [current_words.get_shape().as_list()[0]] + r.get_shape().as_list())
-            #concated_words = tf.concat([current_words, broadcasted_prev_guesses], axis=2) 
+            #concated_words = tf.concat([current_words, broadcasted_prev_guesses], axis=2)
             mt1 = tf.math.add(tf.tensordot(concated_words, w1, axes=[[2], [0]]), b1)
             mt1 = tf.reduce_max(mt1, reduction_indices=[3])
             #print('mt1 shape:', mt1.get_shape())

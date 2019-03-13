@@ -123,11 +123,11 @@ with tf.name_scope("decoder"):
                 )
 
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
-            s_indices = tf.transpose(tf.stack([s, batch_indices]))
+            s_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_indices)
 
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
-            e_indices = tf.transpose(tf.stack([e, batch_indices]))
+            e_indices = tf.transpose(tf.stack([batch_indices, e]))
             u_e = tf.gather_nd(encoded, e_indices)
 
             # Each guess contributes to loss,
