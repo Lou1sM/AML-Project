@@ -19,17 +19,17 @@ logging.getLogger('tensorflow').setLevel(50)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
+parser.add_argument("--num_epochs", default=100, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 #parser.add_argument("--num_units", default=200, type=int,help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=10, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=256, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
-parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
+parser.add_argument("--hidden_size", default=100, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=1e-3, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
-parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
+parser.add_argument("--pool_size", default=8, type=int, help="Number of units to pool over in HMN sub-network")
 parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
 parser.add_argument("--early_stop", default=None, type=int, help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
 
@@ -200,6 +200,7 @@ with tf.Session() as sess:
     for epoch in range(ARGS.num_epochs):
         print("\nEpoch:", epoch)
         for batch_num in range(0,dataset_length,ARGS.batch_size):
+            batch_time = time.time()
             feed_dict={
                 d:input_d_vecs[batch_num:batch_num+ARGS.batch_size], 
                 q:input_q_vecs[batch_num: batch_num+ARGS.batch_size], 
@@ -209,12 +210,12 @@ with tf.Session() as sess:
                 que_l: questions_lengths[batch_num: batch_num+ARGS.batch_size]
                 }
 
-
             if batch_num//ARGS.batch_size % 10 == 0:
                 _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict) 
                 print("\tBatch: {}\tloss: {}".format(batch_num//ARGS.batch_size, loss_val)) 
             else:
                 sess.run([train_step], feed_dict=feed_dict) 
+            print(time.time()-batch_time)
         save_path = saver.save(sess, "checkpoints/model.ckpt.{}".format(epoch))
         print("Model saved in path: %s" % save_path)
 

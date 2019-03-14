@@ -1,7 +1,7 @@
 import numpy as np
 
 def get_data():
-        filename = 'data/padded_train_d.npy'
+        filename = 'data/padded_train_data_list.npy'
         # Taking only a slice of size 1 from the data (just one element)
         # The code will work with all the data once we feed into it the 
         # padded sequences, i.e. once all tensor elements agree on sizes
