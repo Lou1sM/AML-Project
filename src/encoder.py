@@ -75,11 +75,11 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
             variable_summaries(sentinel_q)
         # append sentinels at the end of documents
         expanded_sentinel_d = tf.expand_dims(tf.expand_dims(sentinel_d, 0), 0)
-        tiled_sentinel_d = tf.tile(expanded_sentinel_d, [10, 1, 1])
+        tiled_sentinel_d = tf.tile(expanded_sentinel_d, [hyperparameters.batch_size, 1, 1])
         D = tf.concat([D, tiled_sentinel_d], axis=1)
         # append sentinels at the end of questions
         expanded_sentinel_q = tf.expand_dims(tf.expand_dims(sentinel_q, 0), 0)
-        tiled_sentinel_q = tf.tile(expanded_sentinel_q, [10, 1, 1])
+        tiled_sentinel_q = tf.tile(expanded_sentinel_q, [hyperparameters.batch_size, 1, 1])
         Q = tf.concat([Q, tiled_sentinel_q], axis=1)
 
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))

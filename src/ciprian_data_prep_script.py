@@ -9,7 +9,7 @@ def get_data():
         try:
             data_array = np.load(filename)
         except:
-            data_array = np.load('../data/padded_train_data.npy')
+            data_array = np.load('./data/padded_train_data.npy')
         print("Get Data stage: ciprian_data_prep read ", filename, " of shape: ", data_array.shape)
         documents = data_array[0][0]
         questions = data_array[0][1]
