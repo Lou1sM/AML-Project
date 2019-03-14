@@ -31,8 +31,15 @@ parser.add_argument("--keep_prob", default=1, type=float, help="Keep probability
 parser.add_argument("--learning_rate", default=1e-3, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
+parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
+parser.add_argument("--early_stop", default=None, type=int, help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
 
 ARGS = parser.parse_args()
+
+if ARGS.early_stop != None: 
+    ARGS.validate == True
+
+
 
 """
 with tf.name_scope("data_prep"):
@@ -49,11 +56,18 @@ with tf.name_scope("data_prep"):
 """
 
 dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
+validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
+validation_dataset = validation_dataset.shuffle(1000)
+validation_dataset = validation_dataset.batch(ARGS.batch_size).prefetch(1)
 #dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
-dataset = dataset.batch(ARGS.batch_size)
-iter_ = dataset.make_initializable_iterator()
+#dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
+dataset = dataset.shuffle(1000)
+dataset = dataset.batch(ARGS.batch_size).prefetch(1)
+iterator = tf.data.Iterator.from_structure(dataset.output_types, dataset.output_shapes)
 
-data_dict = iter_.get_next()
+train_init_op = iterator.make_initializer(dataset)
+val_init_op = iterator.make_initializer(validation_dataset)
+data_dict = iterator.get_next()
 d = data_dict['D']
 q = data_dict['Q']
 a = data_dict['A']
@@ -161,15 +175,18 @@ writer = tf.summary.FileWriter(summaryDirectory)
 writer.add_graph(tf.get_default_graph())
 
 saver = tf.train.Saver()
-
+loss_val = -1
+if ARGS.early_stop != None:
+    tolerance = ARGS.early_stop
+else:
+    tolerance = ARGS.num_epochs
+best_loss_val = -1
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-
-    #sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
     for i in range(ARGS.num_epochs):
-        sess.run(iter_.initializer)
+        sess.run(train_init_op)
         profileFirstBatch = False
         while True:
             try:
@@ -189,16 +206,35 @@ with tf.Session() as sess:
                 else:
                     summary, _, loss_val = sess.run([merged, train_step, mean_loss])
                     print(loss_val)
-                if ARGS.test:
-                    break
+                    if ARGS.test:
+                        break
             except tf.errors.OutOfRangeError:
                 writer.add_summary(summary, i)
-                break
+                if ARGS.validate:
+                    print('\nComputing validiation loss:')
+                    sess.run(val_init_op)
+                    new_loss_val = 0
+                    while True:
+                        try:
+                            new_loss_val += sess.run(mean_loss)
+                        except tf.errors.OutOfRangeError:
+                            print(new_loss_val)
+                            if new_loss_val < best_loss_val or best_loss_val == -1:
+                                best_loss_val = new_loss_val
+                                save_path = saver.save(sess, "checkpoints/model.ckpt")
+                                print("Model saved in path: %s" % save_path)
+                            else:
+                                print("No improvement in loss, not saving")
+                                tolerance -= 1
+                            break
+                break           
+
+        if tolerance == 0:
+            print('Tolerance threshold reached, early-stopping')
+            break
 
     train_end_time = time.time()
 
     print("Train time", utils.time_format(train_end_time - train_start_time))
 
-    #save_path = saver.save(sess, "/tmp/model.ckpt")
-    #print("Model saved in path: %s" % save_path)
 
