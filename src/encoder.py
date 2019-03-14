@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+from src.utils import bias_variable, variable_summaries
 
 # Note: can't use CudNN as it is not yet adapated (in TF)
 # to take batches of variable sizes (NVidia recently added this feature to their ML API ~ 1 month ago),
@@ -8,7 +9,7 @@ import tensorflow as tf
 
 # Provide hyperparameters to functions below as dictionary with keys "num_units", "keep_prob", "batch_size"
 
-def build_lstm_cell(num_units = 200, keep_prob = 1, batch_size = 10): 
+def build_lstm_cell(num_units = 200, keep_prob = 1, batch_size = 10):
     # lstm = tf.contrib.rnn.BasicLSTMCell(num_units) # deprecated
     lstm = tf.nn.rnn_cell.LSTMCell(name='basic_lstm_cell', num_units = num_units)
     cell = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob = keep_prob)
@@ -64,10 +65,24 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
 # input=tf.unstack(x ,time_steps,1)
 
 
-# TODO: add sentinel below, now we do not add the sentinel at the end anymore,
-# we should add it between the padded sequence of each question and the question content
 def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters):
     # D[i] = document i in the batch, Q[i] = question i in the batch
+    with tf.name_scope("sentinels"):
+        with tf.variable_scope("sentinel_d"):
+            sentinel_d = bias_variable([hyperparameters.num_units])
+            variable_summaries(sentinel_d)
+        with tf.variable_scope("sentinel_q"):
+            sentinel_q = bias_variable([hyperparameters.num_units])
+            variable_summaries(sentinel_q)
+        # append sentinels at the end of documents
+        expanded_sentinel_d = tf.expand_dims(tf.expand_dims(sentinel_d, 0), 0)
+        tiled_sentinel_d = tf.tile(expanded_sentinel_d, [10, 1, 1])
+        D = tf.concat([D, tiled_sentinel_d], axis=1)
+        # append sentinels at the end of questions
+        expanded_sentinel_q = tf.expand_dims(tf.expand_dims(sentinel_q, 0), 0)
+        tiled_sentinel_q = tf.tile(expanded_sentinel_q, [10, 1, 1])
+        Q = tf.concat([Q, tiled_sentinel_q], axis=1)
+
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))
 
     A_Q = tf.nn.softmax(L)
@@ -79,6 +94,8 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
 
     concat_2 = tf.concat([tf.transpose(D, perm = [0,2,1]), C_D], 1)
     concat_2 = tf.transpose(concat_2, perm = [0,2,1])
+    concat_2 = concat_2[:, :-1, :]  # remove sentinels
+
     BiLSTM_outputs, BiLSTM_final_fw_state, BiLSTM_final_bw_state = dynamic_bilstm(concat_2, documents_lengths, hyperparameters)
 
     return BiLSTM_outputs
