@@ -40,7 +40,6 @@ if ARGS.early_stop != None:
 
 
 
-"""
 with tf.name_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
     print("In train.py: get_data finished.")
@@ -52,8 +51,8 @@ with tf.name_scope("data_prep"):
     ending_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
-"""
 
+"""
 print(ARGS.validate)
 dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
 validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
@@ -74,6 +73,8 @@ a = data_dict['A']
 doc_l = data_dict['DL']
 que_l = data_dict['QL']
 
+"""
+
 with tf.name_scope("encoder"):
     encoded = encoder.encoder(
         document=d,
@@ -82,9 +83,14 @@ with tf.name_scope("encoder"):
         questions_lengths=que_l,
         hyperparameters=ARGS
     )
-    # Create single nodes for labels
-    start_labels = tf.one_hot(a[:,0], 766)
-    end_labels = tf.one_hot(a[:,1], 766)
+
+    # Create single nodes for labels, data version
+    #start_labels = tf.one_hot(a[:,0], 766)
+    #end_labels = tf.one_hot(a[:,1], 766)
+
+    # Create single nodes for labels, feed_dict version
+    start_labels = tf.one_hot(starting_labels, 766)
+    end_labels = tf.one_hot(ending_labels, 766)
 
 with tf.name_scope("decoder"):
     # Static tensor to be re-used in main loop iterations
@@ -181,6 +187,41 @@ if ARGS.early_stop != None:
 else:
     tolerance = ARGS.num_epochs
 best_loss_val = -1
+
+
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    train_start_time = time.time()
+    print("Graph-build time: ", utils.time_format(train_start_time - start_time))
+
+    dataset_length = len(input_d_vecs)
+    num_batchs = dataset_length//ARGS.batch_size 
+
+    for epoch in range(ARGS.num_epochs):
+        print("\nEpoch:", epoch)
+        for batch_num in range(0,dataset_length,ARGS.batch_size):
+            feed_dict={
+                d:input_d_vecs[batch_num:batch_num+ARGS.batch_size], 
+                q:input_q_vecs[batch_num: batch_num+ARGS.batch_size], 
+                starting_labels: start_l[batch_num: batch_num+ARGS.batch_size], 
+                ending_labels: end_l[batch_num: batch_num+ARGS.batch_size], 
+                doc_l: documents_lengths[batch_num: batch_num+ARGS.batch_size], 
+                que_l: questions_lengths[batch_num: batch_num+ARGS.batch_size]
+                }
+
+
+            if batch_num//ARGS.batch_size % 10 == 0:
+                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict) 
+                print("\tBatch: {}\tloss: {}".format(batch_num//ARGS.batch_size, loss_val)) 
+            else:
+                sess.run([train_step], feed_dict=feed_dict) 
+        save_path = saver.save(sess, "checkpoints/model.ckpt.{}".format(epoch))
+        print("Model saved in path: %s" % save_path)
+
+train_end_time = time.time()
+
+print("Train time", utils.time_format(train_end_time - train_start_time))
+"""
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
@@ -205,7 +246,7 @@ with tf.Session() as sess:
                         f.write(chrome_trace)
                 else:
                     summary, _, loss_val = sess.run([merged, train_step, mean_loss])
-                    print(loss_val)
+                    #print(loss_val)
                     if ARGS.test:
                         break
             except tf.errors.OutOfRangeError:
@@ -237,4 +278,4 @@ with tf.Session() as sess:
 
     print("Train time", utils.time_format(train_end_time - train_start_time))
 
-
+"""
