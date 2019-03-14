@@ -99,28 +99,38 @@ def save_embeddings(type_of_embeddings):
 	data_array = [item for sublist in process_data for item in sublist]
 
 	if(padded_data):
-		documents = []
-		questions = []
-		answers = []
-		ids = []
-		lengths_doc = []
-		lengths_que = []
-		for i in range(0,len(data_array)):
-			doc = list.copy(data_array[i][0])
-			que = list.copy(data_array[i][1])
-			pad = gloveDimension * [0.0]
-			lengths_doc.append(len(doc))
-			lengths_que.append(len(que))
-			doc.extend([pad] * (d_length - len(doc)))
-			que.extend([pad] * (q_length - len(que)))
-			ans = data_array[i][2]
-			q_id = data_array[i][3]
-			documents.append(doc)
-			questions.append(que)
-			answers.append(ans)
-			ids.append(q_id)
-		output_data_array = [[documents, questions, answers, ids], [lengths_doc, lengths_que]]
-		np.save('data/'+type_of_embeddings+'_list', output_data_array)
+		for j in range(0,len(data_array), 640):
+			documents = []
+			questions = []
+			answers = []
+			ids = []
+			lengths_doc = []
+			lengths_que = []
+			for i in range(min(640, len(data_array)-j)):
+				doc = list.copy(data_array[j+i][0])
+				que = list.copy(data_array[j+i][1])
+				pad = gloveDimension * [0.0]
+				lengths_doc.append(len(doc))
+				lengths_que.append(len(que))
+				doc.extend([pad] * (d_length - len(doc)))
+				que.extend([pad] * (q_length - len(que)))
+				ans = data_array[j+i][2]
+				q_id = data_array[j+i][3]
+				documents.append(doc)
+				questions.append(que)
+				answers.append(ans)
+				ids.append(q_id)
+			documents = np.asarray(documents)
+			print('doc done')
+			questions = np.asarray(questions)
+			print('que done')
+			answers = np.asarray(answers)
+			print('ans done')
+			lengths_doc = np.asarray(lengths_doc)
+			lengths_que = np.asarray(lengths_que)
+			output_data_array = [[documents, questions, answers, ids], [lengths_doc, lengths_que]]
+			np.save('../../../shared/data/batched_data/'+type_of_embeddings+str(j/640), output_data_array)
+			print("iteration %d", j)
 	else:
 		documents = list(map (lambda x: np.array(x[0]), data_array))
 		questions = list(map (lambda x: np.array(x[1]), data_array))
