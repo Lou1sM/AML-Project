@@ -71,10 +71,10 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     # D[i] = document i in the batch, Q[i] = question i in the batch
     with tf.name_scope("sentinels"):
         with tf.variable_scope("sentinel_d"):
-            sentinel_d = bias_variable([hyperparameters.num_units])
+            sentinel_d = bias_variable([hyperparameters.hidden_size])
             variable_summaries(sentinel_d)
         with tf.variable_scope("sentinel_q"):
-            sentinel_q = bias_variable([hyperparameters.num_units])
+            sentinel_q = bias_variable([hyperparameters.hidden_size])
             variable_summaries(sentinel_q)
         # append sentinels at the end of documents
         expanded_sentinel_d = tf.expand_dims(tf.expand_dims(sentinel_d, 0), 0)
