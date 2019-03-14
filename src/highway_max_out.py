@@ -18,17 +18,20 @@ def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point
             #print('r shape:', r.get_shape())
 
         with tf.variable_scope("layer2", reuse=tf.AUTO_REUSE):
-            w1 = weight_variable([3 * h_size, h_size, pool_size])
-            variable_summaries(w1)
+            #w1 = weight_variable([3 * h_size, h_size, pool_size])
+            with tf.variable_scope("layer2_current_words", reuse=tf.AUTO_REUSE):
+                w1_current_words = weight_variable([2*h_size, h_size, pool_size])
+            with tf.variable_scope("layer2_r", reuse=tf.AUTO_REUSE):
+                w1_r = weight_variable([h_size, h_size, pool_size])
+            variable_summaries(w1_r)
+            variable_summaries(w1_current_words)
             b1 = bias_variable([h_size, pool_size])
             variable_summaries(b1)
             # change shape of r from (batch_size, hidden_size) to (1, batch_size, hidden_size)
-            expanded_r = tf.expand_dims(r, axis=0)
-            # then copy/tile along the first dimension to get (document_length, batch_size, hidden_size)
-            tiled_r = tf.tile(input=expanded_r, multiples=[current_words.get_shape().as_list()[0], 1, 1])
-            # concat along the last dimension with current_words to get shape of (document_length, batch_size, 3*hidden_size)
-            concated_words = tf.concat([current_words, tiled_r], axis=2)
-            mt1 = tf.math.add(tf.tensordot(concated_words, w1, axes=[[2], [0]]), b1)
+            td_r = tf.tensordot(r, w1_r, axes=[[1], [0]])  # (batch_size, h_size, pool_size)
+            td_current_words = tf.tensordot(current_words, w1_current_words, axes=[[2], [0]])  # (doc_length, batch_size, h_size, pool_size)
+            td = tf.math.add(td_current_words, td_r)  # automatically broadcasts
+            mt1 = tf.math.add(td, b1)
             mt1 = tf.reduce_max(mt1, reduction_indices=[3])
             #print('mt1 shape:', mt1.get_shape())
 
