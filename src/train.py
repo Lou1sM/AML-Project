@@ -200,6 +200,8 @@ with tf.Session() as sess:
     for epoch in range(ARGS.num_epochs):
         print("\nEpoch:", epoch)
         for batch_num in range(0,dataset_length,ARGS.batch_size):
+            if batch_num+ARGS.batch_size >= len(input_d_vecs):
+                break
             batch_time = time.time()
             feed_dict={
                 d:input_d_vecs[batch_num:batch_num+ARGS.batch_size], 
