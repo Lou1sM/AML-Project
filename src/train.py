@@ -21,8 +21,7 @@ logging.getLogger('tensorflow').setLevel(50)
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
-parser.add_argument("--num_units", default=200, type=int, 
-	help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+#parser.add_argument("--num_units", default=200, type=int,help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=10, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
@@ -37,7 +36,7 @@ parser.add_argument("--early_stop", default=None, type=int, help="Number of epoc
 ARGS = parser.parse_args()
 
 if ARGS.early_stop != None: 
-    ARGS.validate == True
+    ARGS.validate = True
 
 
 
@@ -55,6 +54,7 @@ with tf.name_scope("data_prep"):
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
 """
 
+print(ARGS.validate)
 dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
 validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
 validation_dataset = validation_dataset.shuffle(1000)
@@ -121,7 +121,7 @@ with tf.name_scope("decoder"):
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
                     pool_size=ARGS.pool_size,
-                    h_size=ARGS.num_units,
+                    h_size=ARGS.hidden_size,
                     name="HMN_start"
                 )
 
@@ -132,7 +132,7 @@ with tf.name_scope("decoder"):
                     prev_start_point_guess=u_s,
                     prev_end_point_guess=u_e,
                     pool_size=ARGS.pool_size,
-                    h_size=ARGS.num_units,
+                    h_size=ARGS.hidden_size,
                     name="HMN_end"
                 )
 

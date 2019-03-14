@@ -6,32 +6,32 @@ import tensorflow as tf
 # meanwhile, the classic tf.nn.dynamic_rnn supports adding a vector of batch_size elements, each
 # describing the length of the documents/questions to process.
 
-# Provide hyperparameters to functions below as dictionary with keys "num_units", "keep_prob", "batch_size"
+# Provide hyperparameters to functions below as dictionary with keys "hidden_size", "keep_prob", "batch_size"
 
-def build_lstm_cell(num_units = 200, keep_prob = 1, batch_size = 10): 
-    # lstm = tf.contrib.rnn.BasicLSTMCell(num_units) # deprecated
-    lstm = tf.nn.rnn_cell.LSTMCell(name='basic_lstm_cell', num_units = num_units)
+def build_lstm_cell(hidden_size = 200, keep_prob = 1, batch_size = 10): 
+    # lstm = tf.contrib.rnn.BasicLSTMCell(hidden_size) # deprecated
+    lstm = tf.nn.rnn_cell.LSTMCell(name='basic_lstm_cell', num_units = hidden_size)
     cell = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob = keep_prob)
     initial_state = cell.zero_state(batch_size, tf.float32)
     return initial_state, cell
 
 
 def dynamic_lstm(embed, sequence_lengths, hyperparameters):
-    num_units = hyperparameters.num_units
+    hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    initial_state, cell = build_lstm_cell(num_units, keep_prob, batch_size)
+    initial_state, cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
     embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_state = tf.nn.dynamic_rnn(cell = cell, inputs = embed, sequence_length = sequence_lengths, initial_state = initial_state)
     return lstm_outputs, final_state
 
 
 def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
-    num_units = hyperparameters.num_units
+    hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    initial_fw_state, fw_cell = build_lstm_cell(num_units, keep_prob, batch_size)
-    initial_bw_state, bw_cell = build_lstm_cell(num_units, keep_prob, batch_size)
+    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
+    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
     embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_fw_state, final_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                                                         cells_fw = [fw_cell], 
@@ -47,13 +47,13 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
 def doc_que_encoder(document_columns, question_columns, documents_lengths, questions_lengths, hyperparameters):
     # Use batch_size from hyperparameters, dropout, num_cells
     # Data needs to come padded, also need the length 
-    num_units = hyperparameters.num_units
+    hidden_size = hyperparameters.hidden_size
     with tf.variable_scope('lstm') as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
         scope.reuse_variables()
         que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters)
     with tf.variable_scope('tanhlayer') as scope:
-        linear_model = tf.layers.Dense(units = num_units)
+        linear_model = tf.layers.Dense(units = hidden_size)
         question_enc = tf.math.tanh(linear_model(que_lstm_outputs))
  
     return document_enc, question_enc
