@@ -64,17 +64,14 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
 # x=tf.placeholder("float",[None,time_steps,n_input])
 # input=tf.unstack(x ,time_steps,1)
 
-
-# TODO: add sentinel below, now we do not add the sentinel at the end anymore,
-# we should add it between the padded sequence of each question and the question content
 def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters):
     # D[i] = document i in the batch, Q[i] = question i in the batch
     with tf.name_scope("sentinels"):
         with tf.variable_scope("sentinel_d"):
-            sentinel_d = bias_variable([hyperparameters.num_units])
+            sentinel_d = bias_variable([hyperparameters.hidden_size])
             variable_summaries(sentinel_d)
         with tf.variable_scope("sentinel_q"):
-            sentinel_q = bias_variable([hyperparameters.num_units])
+            sentinel_q = bias_variable([hyperparameters.hidden_size])
             variable_summaries(sentinel_q)
         # append sentinels at the end of documents
         expanded_sentinel_d = tf.expand_dims(tf.expand_dims(sentinel_d, 0), 0)
