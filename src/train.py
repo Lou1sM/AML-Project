@@ -213,7 +213,8 @@ with tf.Session() as sess:
                 }
 
             if batch_num//ARGS.batch_size % 10 == 0:
-                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict) 
+                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
+                writer.add_summary(summary_val, i)
                 print("\tBatch: {}\tloss: {}".format(batch_num//ARGS.batch_size, loss_val)) 
             else:
                 sess.run([train_step], feed_dict=feed_dict) 
