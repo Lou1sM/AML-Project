@@ -1,7 +1,7 @@
 import numpy as np
 
 def get_data():
-        filename = 'data/padded_train_data_list.npy'
+        filename = 'data/padded_train_data_shuffled.npy'
         # Taking only a slice of size 1 from the data (just one element)
         # The code will work with all the data once we feed into it the 
         # padded sequences, i.e. once all tensor elements agree on sizes
@@ -16,5 +16,5 @@ def get_data():
         answers = data_array[0][2]
         lengths_documents = data_array[1][0]
         lengths_questions = data_array[1][1]
-        size = 1000
+        size = len(lengths_documents)
         return documents[:size], questions[:size], answers[:size], lengths_documents[:size], lengths_questions[:size] 

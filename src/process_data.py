@@ -5,6 +5,7 @@ import itertools
 import time
 import nltk 
 import pickle 
+import random
 
 filename = 'data/embedding/glove.840B.300d.txt'
 train_json_filename = 'data/squad/train-v1.1.json'
@@ -97,6 +98,7 @@ def save_embeddings(type_of_embeddings):
 	data = list(map(lambda x: process_squad(x, multiple_answers), answer))
 	process_data = list(map(lambda x: apply_embd(embedding, x), data))
 	data_array = [item for sublist in process_data for item in sublist]
+	random.shuffle(data_array)
 
 	if(padded_data):
 		documents = []
@@ -120,7 +122,7 @@ def save_embeddings(type_of_embeddings):
 			answers.append(ans)
 			ids.append(q_id)
 		output_data_array = [[documents, questions, answers, ids], [lengths_doc, lengths_que]]
-		np.save('data/'+type_of_embeddings+'_list', output_data_array)
+		np.save('data/'+type_of_embeddings+'_shuffled', output_data_array)
 	else:
 		documents = list(map (lambda x: np.array(x[0]), data_array))
 		questions = list(map (lambda x: np.array(x[1]), data_array))
