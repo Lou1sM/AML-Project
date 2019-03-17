@@ -7,11 +7,11 @@ import nltk
 import pickle 
 import random
 
-filename = 'data/embedding/glove.840B.300d.txt'
+filename = 'data/embedding/glove.6B/glove.6B.50d.txt'
 train_json_filename = 'data/squad/train-v1.1.json'
 test_json_filename = 'data/squad/dev-v1.1.json'
 time1 = time.time()
-gloveDimension = 300
+gloveDimension = 50
 q_length = 60
 d_length = 766
  
@@ -38,7 +38,6 @@ def load_train_data(filename):
 	return data
 
 def save_titles():
-
 	#embedding,index = load_glove(filename)
 	data = load_train_data(json_filename)
 	answer = map(lambda x: x['title'], data['data'])
@@ -56,14 +55,16 @@ def process_squad(x, multiple_answers):
 			for j in range(len(answers[i])):
 				answer = answers[i][j]
 				len_answer = len(nltk.word_tokenize(answer['text']))
-				answer = answer['answer_start']
-				intervals.append([answer, answer+len_answer])
+				answer_character_position = answer['answer_start']
+				answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+				intervals.append([answer, answer+len_answer-1])
 			answer_interval.append(intervals)
 		else:		
 			answer = answers[i][0]
 			len_answer = len(nltk.word_tokenize(answer['text']))
-			answer = answer['answer_start']
-			answer_interval.append([answer, answer+len_answer])
+			answer_character_position = answer['answer_start']
+			answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+			answer_interval.append([answer, answer+len_answer-1])
 	question = list(map(lambda x: nltk.word_tokenize(x['question']), qas))
 	ids = list(map(lambda x: x['id'], qas))
 	qa = list(zip(question, answer_interval, ids))
