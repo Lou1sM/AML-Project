@@ -41,7 +41,7 @@ if ARGS.early_stop != None:
 
 
 with tf.name_scope("data_prep"):
-    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
+    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, questions_ids = ciprian_data_prep_script.get_data(ARGS.test)
     print("In train.py: get_data finished.")
     start_l = list(map(lambda x: x[0], ground_truth_labels))
     end_l = list(map(lambda x: x[1], ground_truth_labels))
@@ -188,43 +188,74 @@ else:
     tolerance = ARGS.num_epochs
 best_loss_val = -1
 
+if(!ARGS.test):
+	with tf.Session() as sess:
+	    sess.run(tf.global_variables_initializer())
+	    train_start_time = time.time()
+	    print("Graph-build time: ", utils.time_format(train_start_time - start_time))
 
-with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
-    train_start_time = time.time()
-    print("Graph-build time: ", utils.time_format(train_start_time - start_time))
+	    dataset_length = len(input_d_vecs)
+	    num_batchs = dataset_length//ARGS.batch_size 
 
-    dataset_length = len(input_d_vecs)
-    num_batchs = dataset_length//ARGS.batch_size 
+	    for epoch in range(ARGS.num_epochs):
+	        print("\nEpoch:", epoch)
+	        for batch_num in range(0,dataset_length,ARGS.batch_size):
+	            if batch_num+ARGS.batch_size >= len(input_d_vecs):
+	                break
+	            batch_time = time.time()
+	            feed_dict={
+	                d:input_d_vecs[batch_num:batch_num+ARGS.batch_size], 
+	                q:input_q_vecs[batch_num: batch_num+ARGS.batch_size], 
+	                starting_labels: start_l[batch_num: batch_num+ARGS.batch_size], 
+	                ending_labels: end_l[batch_num: batch_num+ARGS.batch_size], 
+	                doc_l: documents_lengths[batch_num: batch_num+ARGS.batch_size], 
+	                que_l: questions_lengths[batch_num: batch_num+ARGS.batch_size]
+	                }
 
-    for epoch in range(ARGS.num_epochs):
-        print("\nEpoch:", epoch)
-        for batch_num in range(0,dataset_length,ARGS.batch_size):
-            if batch_num+ARGS.batch_size >= len(input_d_vecs):
-                break
-            batch_time = time.time()
-            feed_dict={
-                d:input_d_vecs[batch_num:batch_num+ARGS.batch_size], 
-                q:input_q_vecs[batch_num: batch_num+ARGS.batch_size], 
-                starting_labels: start_l[batch_num: batch_num+ARGS.batch_size], 
-                ending_labels: end_l[batch_num: batch_num+ARGS.batch_size], 
-                doc_l: documents_lengths[batch_num: batch_num+ARGS.batch_size], 
-                que_l: questions_lengths[batch_num: batch_num+ARGS.batch_size]
-                }
+	            if batch_num//ARGS.batch_size % 10 == 0:
+	                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
+	                writer.add_summary(summary_val, i)
+	                print("\tBatch: {}\tloss: {}".format(batch_num//ARGS.batch_size, loss_val)) 
+	            else:
+	                sess.run([train_step], feed_dict=feed_dict) 
+	            print(time.time()-batch_time)
+	        save_path = saver.save(sess, "checkpoints/model.ckpt.{}".format(epoch))
+	        print("Model saved in path: %s" % save_path)
 
-            if batch_num//ARGS.batch_size % 10 == 0:
-                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
-                writer.add_summary(summary_val, i)
-                print("\tBatch: {}\tloss: {}".format(batch_num//ARGS.batch_size, loss_val)) 
-            else:
-                sess.run([train_step], feed_dict=feed_dict) 
-            print(time.time()-batch_time)
-        save_path = saver.save(sess, "checkpoints/model.ckpt.{}".format(epoch))
-        print("Model saved in path: %s" % save_path)
+	train_end_time = time.time()
 
-train_end_time = time.time()
+	print("Train time", utils.time_format(train_end_time - train_start_time))
+else:
+	with tf.Session() as sess:
+	    saver = tf.train.import_meta_graph('checkpoints/model.ckpt.55.meta')
+	    print("Loaded graph")
+	    
+	    saver.restore(sess, tf.train.latest_checkpoint('checkpoints/'))
+	    print("Loaded weights")
 
-print("Train time", utils.time_format(train_end_time - train_start_time))
+        for batch_num in range(0, dataset_length,ARGS.batch_size):
+	        if batch_num + ARGS.batch_size >= len(input_d_vecs):
+	            break
+
+		    feed_dict = {
+	            d: input_d_vecs[batch_num:batch_num + ARGS.batch_size], 
+	            q: input_q_vecs[batch_num: batch_num + ARGS.batch_size], 
+	            starting_labels: start_l[batch_num: batch_num + ARGS.batch_size], 
+	            ending_labels: end_l[batch_num: batch_num + ARGS.batch_size], 
+	            doc_l: documents_lengths[batch_num: batch_num + ARGS.batch_size], 
+	            que_l: questions_lengths[batch_num: batch_num + ARGS.batch_size]
+	            }
+
+	        _, loss_val, start_predict, end_predict = sess.run([train_step, mean_loss, s_indices, e_indices], feed_dict = feed_dict)
+	        start_correct = start_l[batch_num: batch_num + ARGS.batch_size]
+	        end_correct = end_l[batch_num: batch_num + ARGS.batch_size]
+
+	        for i in range(ARGS.batch_size):
+	        	print("Question with ID: ", questions_ids[batch_num + i])
+	        	print("Correct (start, end): ", (start_correct[i], end_correct[i]))
+	        	print("Predicted (start, end): ", (start_predict[i], end_predict[i]))
+	        	print("___________________________")
+
 """
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
