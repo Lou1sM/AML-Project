@@ -5,6 +5,7 @@ import itertools
 import time
 import nltk 
 import pickle 
+import random 
 
 filename = 'data/embedding/glove.840B.300d.txt'
 train_json_filename = 'data/squad/train-v1.1.json'
@@ -37,7 +38,6 @@ def load_train_data(filename):
 	return data
 
 def save_titles():
-
 	#embedding,index = load_glove(filename)
 	data = load_train_data(json_filename)
 	answer = map(lambda x: x['title'], data['data'])
@@ -55,14 +55,16 @@ def process_squad(x, multiple_answers):
 			for j in range(len(answers[i])):
 				answer = answers[i][j]
 				len_answer = len(nltk.word_tokenize(answer['text']))
-				answer = answer['answer_start']
-				intervals.append([answer, answer+len_answer])
+				answer_character_position = answer['answer_start']
+				answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+				intervals.append([answer, answer+len_answer-1])
 			answer_interval.append(intervals)
 		else:		
 			answer = answers[i][0]
 			len_answer = len(nltk.word_tokenize(answer['text']))
-			answer = answer['answer_start']
-			answer_interval.append([answer, answer+len_answer])
+			answer_character_position = answer['answer_start']
+			answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+			answer_interval.append([answer, answer+len_answer-1])
 	question = list(map(lambda x: nltk.word_tokenize(x['question']), qas))
 	ids = list(map(lambda x: x['id'], qas))
 	qa = list(zip(question, answer_interval, ids))
@@ -97,7 +99,8 @@ def save_embeddings(type_of_embeddings):
 	data = list(map(lambda x: process_squad(x, multiple_answers), answer))
 	process_data = list(map(lambda x: apply_embd(embedding, x), data))
 	data_array = [item for sublist in process_data for item in sublist]
-
+	data_array = list(filter(lambda x: len(x[0]) < 600, data_array))	
+	random.shuffle(data_array)
 	if(padded_data):
 		for j in range(0,len(data_array), 640):
 			documents = []
@@ -129,7 +132,7 @@ def save_embeddings(type_of_embeddings):
 			lengths_doc = np.asarray(lengths_doc)
 			lengths_que = np.asarray(lengths_que)
 			output_data_array = [[documents, questions, answers, ids], [lengths_doc, lengths_que]]
-			np.save('../../../shared/data/batched_data/'+type_of_embeddings+str(j/640), output_data_array)
+			np.savez_compressed('../../../shared/data/batched_data/'+type_of_embeddings+str(j/640), output_data_array)
 			print("iteration %d", j)
 	else:
 		documents = list(map (lambda x: np.array(x[0]), data_array))

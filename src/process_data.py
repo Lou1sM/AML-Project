@@ -7,11 +7,11 @@ import nltk
 import pickle 
 import random
 
-filename = 'data/embedding/glove.840B.300d.txt'
+filename = 'data/embedding/glove.6B/glove.6B.50d.txt'
 train_json_filename = 'data/squad/train-v1.1.json'
 test_json_filename = 'data/squad/dev-v1.1.json'
 time1 = time.time()
-gloveDimension = 300
+gloveDimension = 50
 q_length = 60
 d_length = 766
  
@@ -72,7 +72,6 @@ def process_squad(x, multiple_answers):
 	return product
 
 def apply_embd(dic, context): 
-
 	document = list(map(lambda x: dic[x.lower()] if x.lower() in dic else [0.0]*gloveDimension, context[0]))
 	answers = list(map(lambda x: [list(map(lambda y: dic[y.lower()] if y.lower() in dic else [0.0]*gloveDimension, x[0])),x[1], x[2]], context[1]))
 	answers = [[document, x[0], x[1], x[2]] for x in answers]
@@ -99,8 +98,8 @@ def save_embeddings(type_of_embeddings):
 	data = list(map(lambda x: process_squad(x, multiple_answers), answer))
 	process_data = list(map(lambda x: apply_embd(embedding, x), data))
 	data_array = [item for sublist in process_data for item in sublist]
+	#data_array = list(filter(lambda x: len(x[0]) < 600, data_array))
 	random.shuffle(data_array)
-
 	if(padded_data):
 		documents = []
 		questions = []
@@ -133,5 +132,5 @@ def save_embeddings(type_of_embeddings):
 
 # the types are 'padded_train_data', 'unpadded_train_data', 'padded_test_data', 'unpadded_test_data'
 # the padded version also contain the lenghts of the original data points 
-type_of_embeddings = 'padded_train_data'
+type_of_embeddings = 'padded_test_data'
 save_embeddings(type_of_embeddings)
