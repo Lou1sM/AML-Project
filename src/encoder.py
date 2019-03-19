@@ -1,6 +1,6 @@
 import numpy as np
 import tensorflow as tf
-from src.utils import bias_variable, variable_summaries
+from utils import bias_variable, variable_summaries
 
 # Note: can't use CudNN as it is not yet adapated (in TF)
 # to take batches of variable sizes (NVidia recently added this feature to their ML API ~ 1 month ago),
