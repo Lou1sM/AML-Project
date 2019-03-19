@@ -1,13 +1,14 @@
 import numpy as np
 import tensorflow as tf
 
-def array_to_tfrecords(D, Q, A, DL, QL, output_file):
+def array_to_tfrecords(D, Q, A, DL, QL, ID, output_file):
     feature = {
         'D': tf.train.Feature(float_list=tf.train.FloatList(value=D.flatten())),
         'Q': tf.train.Feature(float_list=tf.train.FloatList(value=Q.flatten())),
         'A': tf.train.Feature(int64_list=tf.train.Int64List(value=A.flatten())),
         'DL': tf.train.Feature(int64_list=tf.train.Int64List(value=DL.flatten())),
-        'QL': tf.train.Feature(int64_list=tf.train.Int64List(value=QL.flatten()))
+        'QL': tf.train.Feature(int64_list=tf.train.Int64List(value=QL.flatten())),
+        'ID': tf.train.Feature(bytes_list=tf.train.BytesList(value=[d.encode() for d in ID]))
 
     }
     example = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -25,11 +26,12 @@ def parse_proto(example_proto, d_shape=(640,766,50), q_shape=(640,60,50), a_shap
         'Q': tf.FixedLenFeature((q_shape), tf.float32),
         'A': tf.FixedLenFeature((a_shape), tf.int64),
         'DL': tf.FixedLenFeature((l), tf.int64),
-        'QL': tf.FixedLenFeature((l), tf.int64)
+        'QL': tf.FixedLenFeature((l), tf.int64),
+        'ID': tf.FixedLenFeature((l), tf.string)
     }
     parsed_features = tf.parse_single_example(example_proto, features)
     return parsed_features
-    return parsed_features['D'], parsed_features['Q'], parsed_features['A'], parsed_features['DL'], parsed_features['QL']
+    return parsed_features['D'], parsed_features['Q'], parsed_features['A'], parsed_features['DL'], parsed_features['QL'], parsed_features['ID']
 
 def read_tfrecords(file_names,
                    img_shapes=None,
@@ -43,7 +45,7 @@ def read_tfrecords(file_names,
     dataset = tf.data.TFRecordDataset(file_names)
     dataset = dataset.map(lambda x: parse_proto(x, d_shape, q_shape, a_shape, l))
     dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensor_slices(x))
-    dataset = dataset.shuffle(buffer_size)
+    #dataset = dataset.shuffle(buffer_size)
     #dataset = dataset.repeat()
     #dataset = dataset.batch(batch_size)
     return dataset
@@ -54,21 +56,23 @@ def read_tfrecords(file_names,
 
 if __name__ == "__main__":
     #data = np.load('/home/louis/datasets/moving_mnist/mnist_test_seq.npy')
-    data = np.load('/home/louis/AML-Project/data/padded_train_data1.0.npy')
+    data = np.load('/home/louis/AML-Project/padded_train_data1.0.npz')
     
+    data = data.f.arr_0
     #data = np.load('/home/louis/datasets/moving_mnist/small1.npy')
-    print(data.shape)
-    D = data[0][0][:32,:,:]
-    Q = data[0][1][:32,:,:]
-    A = data[0][2][:32,:]
-    print(A[0])
-    DL = data[1][0][:32]
-    QL = data[1][1][:32]
-    print(type(QL[0]))
-    print(D.shape)
-    print(Q.shape)
-    print(len(DL))
-    print(DL.shape)
+    #print(data.shape)
+    D = data[0][0]
+    Q = data[0][1]
+    A = data[0][2]
+    ID = data[0][3]
+    #print(A[0])
+    DL = data[1][0]
+    QL = data[1][1]
+    #print(D.shape)
+    #print(Q.shape)
+    #print(ID)
+    #print(len(DL))
+    #print(DL.shape)
     """
     D = data[0][0]
     Q = data[0][1]
@@ -81,7 +85,7 @@ if __name__ == "__main__":
     print(Q.shape)
         
     """
-    array_to_tfrecords(D=D, Q=Q, A=A, DL=DL, QL=QL, output_file="test.tfrecord")
+    array_to_tfrecords(D=D, Q=Q, A=A, DL=DL, QL=QL, ID=ID, output_file="test.tfrecord")
     print('s', np.prod(D.shape))
     """
     for i in range(100):
@@ -96,15 +100,25 @@ if __name__ == "__main__":
     iter_ = recovered.make_initializable_iterator()
     tensor_dict = iter_.get_next()
     d_tensor = tensor_dict['D']
+    id_tensor = tensor_dict['ID']
     print(d_tensor)
     print(d_tensor.get_shape())
     init = iter_.initializer
 
     with tf.Session() as sess:
         sess.run(init)
-        d_val = sess.run(d_tensor)
-        print(d_val)
-        print(D)
+        #sess.run(d_tensor)
+        d_val, id_val = sess.run([d_tensor, id_tensor])
+        #print(d_val)
+        #print(D)
         print(D.shape)
         print(d_val.shape)
-        print(d_val[0,:].all() == D[0,0,:].all())
+        print(d_val[:,:].all() == D[0,:,:].all())
+        #id_val = sess.run(id_tensor)
+        print(id_val)
+        id_val = id_val.decode()
+        print(id_val)
+        print(ID[0])
+        print(id_val == ID[0])
+        print(id_val in ID)
+        print(ID.index(id_val))
