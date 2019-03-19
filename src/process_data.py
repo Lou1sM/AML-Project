@@ -7,11 +7,11 @@ import nltk
 import pickle 
 import random
 
-filename = 'data/embedding/glove.6B/glove.6B.50d.txt'
+filename = 'data/embedding/glove.840B.300d.txt'
 train_json_filename = 'data/squad/train-v1.1.json'
 test_json_filename = 'data/squad/dev-v1.1.json'
 time1 = time.time()
-gloveDimension = 50
+gloveDimension = 300
 q_length = 60
 d_length = 766
  
