@@ -19,7 +19,7 @@ logging.getLogger('tensorflow').setLevel(50)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--num_epochs", default=100, type=int, help="Number of epochs to train for")
+parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 #parser.add_argument("--num_units", default=200, type=int,help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
@@ -38,8 +38,9 @@ ARGS = parser.parse_args()
 if ARGS.early_stop != None: 
     ARGS.validate = True
 
+print(ARGS.test)
 
-
+"""
 with tf.name_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
     print("In train.py: get_data finished.")
@@ -54,14 +55,15 @@ with tf.name_scope("data_prep"):
 
 """
 print(ARGS.validate)
-dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
-validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'))
+dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'), d_shape=[32,766,50], q_shape=[32,60,50], a_shape=[32,2], l=32)
+dataset = dataset.shuffle(1000)
+dataset = dataset.batch(ARGS.batch_size).prefetch(1)
+
+validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'), d_shape=[32,766,50], q_shape=[32,60,50], a_shape=[32,2], l=32)
 validation_dataset = validation_dataset.shuffle(1000)
 validation_dataset = validation_dataset.batch(ARGS.batch_size).prefetch(1)
 #dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
 #dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
-dataset = dataset.shuffle(1000)
-dataset = dataset.batch(ARGS.batch_size).prefetch(1)
 iterator = tf.data.Iterator.from_structure(dataset.output_types, dataset.output_shapes)
 
 train_init_op = iterator.make_initializer(dataset)
@@ -73,7 +75,6 @@ a = data_dict['A']
 doc_l = data_dict['DL']
 que_l = data_dict['QL']
 
-"""
 
 with tf.name_scope("encoder"):
     encoded = encoder.encoder(
@@ -85,12 +86,12 @@ with tf.name_scope("encoder"):
     )
 
     # Create single nodes for labels, data version
-    #start_labels = tf.one_hot(a[:,0], 766)
-    #end_labels = tf.one_hot(a[:,1], 766)
+    start_labels = tf.one_hot(a[:,0], 766)
+    end_labels = tf.one_hot(a[:,1], 766)
 
     # Create single nodes for labels, feed_dict version
-    start_labels = tf.one_hot(starting_labels, 766)
-    end_labels = tf.one_hot(ending_labels, 766)
+    #start_labels = tf.one_hot(starting_labels, 766)
+    #end_labels = tf.one_hot(ending_labels, 766)
 
 with tf.name_scope("decoder"):
     # Static tensor to be re-used in main loop iterations
@@ -189,6 +190,7 @@ else:
 best_loss_val = -1
 
 
+"""
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
@@ -251,7 +253,7 @@ with tf.Session() as sess:
                         f.write(chrome_trace)
                 else:
                     summary, _, loss_val = sess.run([merged, train_step, mean_loss])
-                    #print(loss_val)
+                    print(loss_val)
                     if ARGS.test:
                         break
             except tf.errors.OutOfRangeError:
@@ -283,4 +285,3 @@ with tf.Session() as sess:
 
     print("Train time", utils.time_format(train_end_time - train_start_time))
 
-"""
