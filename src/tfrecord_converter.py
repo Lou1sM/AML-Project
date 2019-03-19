@@ -18,13 +18,14 @@ def array_to_tfrecords(D, Q, A, DL, QL, output_file):
     writer.close()
 
 
-def parse_proto(example_proto, d_shape=(640,766,50), q_shape=(640,60,50), a_shape=(640,2)):
+def parse_proto(example_proto, d_shape=(640,766,50), q_shape=(640,60,50), a_shape=(640,2), l=640):
+    print(d_shape, q_shape, a_shape, l)
     features = {
         'D': tf.FixedLenFeature((d_shape), tf.float32),
         'Q': tf.FixedLenFeature((q_shape), tf.float32),
         'A': tf.FixedLenFeature((a_shape), tf.int64),
-        'DL': tf.FixedLenFeature((640), tf.int64),
-        'QL': tf.FixedLenFeature((640), tf.int64)
+        'DL': tf.FixedLenFeature((l), tf.int64),
+        'QL': tf.FixedLenFeature((l), tf.int64)
     }
     parsed_features = tf.parse_single_example(example_proto, features)
     return parsed_features
@@ -34,9 +35,13 @@ def read_tfrecords(file_names,
                    img_shapes=None,
                    buffer_size=100,
                    batch_size=32,
+                   d_shape=None,
+                   q_shape=None,
+                   a_shape=None,
+                   l=None
                    ):
     dataset = tf.data.TFRecordDataset(file_names)
-    dataset = dataset.map(lambda x: parse_proto(x))
+    dataset = dataset.map(lambda x: parse_proto(x, d_shape, q_shape, a_shape, l))
     dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensor_slices(x))
     dataset = dataset.shuffle(buffer_size)
     #dataset = dataset.repeat()
@@ -53,6 +58,18 @@ if __name__ == "__main__":
     
     #data = np.load('/home/louis/datasets/moving_mnist/small1.npy')
     print(data.shape)
+    D = data[0][0][:32,:,:]
+    Q = data[0][1][:32,:,:]
+    A = data[0][2][:32,:]
+    print(A[0])
+    DL = data[1][0][:32]
+    QL = data[1][1][:32]
+    print(type(QL[0]))
+    print(D.shape)
+    print(Q.shape)
+    print(len(DL))
+    print(DL.shape)
+    """
     D = data[0][0]
     Q = data[0][1]
     A = data[0][2]
@@ -62,7 +79,10 @@ if __name__ == "__main__":
     print(type(QL[0]))
     print(D.shape)
     print(Q.shape)
+        
+    """
     array_to_tfrecords(D=D, Q=Q, A=A, DL=DL, QL=QL, output_file="test.tfrecord")
+    print('s', np.prod(D.shape))
     """
     for i in range(100):
         sliced_data = data[:,100*i:100*(i+1),:,:]
@@ -70,9 +90,13 @@ if __name__ == "__main__":
         array_to_tfrecords(sliced_data, "file{}.tfrecord".format(i+1))
     """
     #filelist = ["/home/louis/datasets/moving_mnist/tfrecords/file{}.tfrecord".format(i) for i in range(1,101)]
-    recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(8192000,))
+    #recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(8192000,))
+    #recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(1225600,))
+    recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, d_shape=D.shape, q_shape=Q.shape, a_shape=A.shape, l=len(DL))
     iter_ = recovered.make_initializable_iterator()
-    d_tensor, q_tensor, a_tensor, dl, ql = iter_.get_next()
+    tensor_dict = iter_.get_next()
+    d_tensor = tensor_dict['D']
+    print(d_tensor)
     print(d_tensor.get_shape())
     init = iter_.initializer
 
@@ -80,5 +104,7 @@ if __name__ == "__main__":
         sess.run(init)
         d_val = sess.run(d_tensor)
         print(d_val)
+        print(D)
+        print(D.shape)
         print(d_val.shape)
-        print(d_val[0,:,:,:].all() == D.all())
+        print(d_val[0,:].all() == D[0,0,:].all())
