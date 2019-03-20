@@ -55,11 +55,16 @@ with tf.name_scope("data_prep"):
 
 """
 print(ARGS.validate)
-dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'), d_shape=[32,766,50], q_shape=[32,60,50], a_shape=[32,2], l=32)
+filename_dataset = tf.data.Dataset.list_files('/home/shared/data/tfrecords/*')
+train_files = ['/home/shared/data/tfrecords/file{}.tfrecord'.format(i) for i in range(120)]
+print(train_files)
+eval_files = ['/home/shared/data/tfrecords/file{}.tfrecord'.format(i) for i in range(120,139)]
+dataset = tfrecord_converter.read_tfrecords(file_names=train_files, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
 dataset = dataset.shuffle(1000)
 dataset = dataset.batch(ARGS.batch_size).prefetch(1)
 
-validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'), d_shape=[32,766,50], q_shape=[32,60,50], a_shape=[32,2], l=32)
+#validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'), d_shape=[32,766,50], q_shape=[32,60,50], a_shape=[32,2], l=32)
+validation_dataset = tfrecord_converter.read_tfrecords(file_names=eval_files, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
 validation_dataset = validation_dataset.shuffle(1000)
 validation_dataset = validation_dataset.batch(ARGS.batch_size).prefetch(1)
 #dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
@@ -86,8 +91,8 @@ with tf.name_scope("encoder"):
     )
 
     # Create single nodes for labels, data version
-    start_labels = tf.one_hot(a[:,0], 766)
-    end_labels = tf.one_hot(a[:,1], 766)
+    start_labels = tf.one_hot(a[:,0], 600)
+    end_labels = tf.one_hot(a[:,1], 600)
 
     # Create single nodes for labels, feed_dict version
     #start_labels = tf.one_hot(starting_labels, 766)
@@ -175,7 +180,7 @@ train_step = optimizer.minimize(mean_loss)
 
 # For Tensorboard
 merged = tf.summary.merge_all()
-summaryDirectory = "summaries/start_" + str(datetime.datetime.now())
+summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
 summaryDirectory = summaryDirectory.replace('.', '_').replace(':', '-').replace(' ', '_')
 tf.gfile.MkDir(summaryDirectory)
 writer = tf.summary.FileWriter(summaryDirectory)
@@ -184,9 +189,9 @@ writer.add_graph(tf.get_default_graph())
 saver = tf.train.Saver()
 loss_val = -1
 if ARGS.early_stop != None:
-    tolerance = ARGS.early_stop
+    base_tolerance = ARGS.early_stop
 else:
-    tolerance = ARGS.num_epochs
+    base_tolerance = ARGS.num_epochs
 best_loss_val = -1
 
 
@@ -269,7 +274,7 @@ with tf.Session() as sess:
                             print(new_loss_val)
                             if new_loss_val < best_loss_val or best_loss_val == -1:
                                 best_loss_val = new_loss_val
-                                save_path = saver.save(sess, "checkpoints/model.ckpt")
+                                save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
                                 print("Model saved in path: %s" % save_path)
                             else:
                                 print("No improvement in loss, not saving")

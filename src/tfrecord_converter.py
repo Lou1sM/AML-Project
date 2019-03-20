@@ -1,3 +1,4 @@
+import shutil
 import numpy as np
 import os
 import tensorflow as tf
@@ -97,14 +98,12 @@ if __name__ == "__main__":
     recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, d_shape=D.shape, q_shape=Q.shape, a_shape=A.shape, l=len(DL))
     """
     
-    it = 0
+    it = 135 
     for file_name in os.listdir('/home/shared/data/batched_data/'):
         file_path = os.path.join('/home/shared/data/batched_data/', file_name)
         np_data = np.load(file_path)
         data = np_data.f.arr_0
-        print(type(data))
         D = data[0][0][:,:600,:]
-        print(D.shape)
         D = np.float32(D)
         Q = data[0][1]
         A = data[0][2]
@@ -114,7 +113,9 @@ if __name__ == "__main__":
         QL = data[1][1]
         out_file_path = '/home/shared/data/tfrecords/file{}.tfrecord'.format(it) 
 
+
         try:
+            assert (not os.path.isfile(out_file_path))
             array_to_tfrecords(D=D, Q=Q, A=A, DL=DL, QL=QL, ID=ID, output_file=out_file_path)
             print('Writing to file {}'.format(out_file_path))
             #recovered = read_tfrecords(file_names=("/home/shared/data/tfrecords/file0.tfrecord"), buffer_size=100, d_shape=D.shape, q_shape=Q.shape, a_shape=A.shape, l=len(DL))
@@ -124,30 +125,23 @@ if __name__ == "__main__":
 
             d_tensor = tensor_dict['D']
             id_tensor = tensor_dict['ID']
-            print(d_tensor)
-            print(d_tensor.get_shape())
             init = iter_.initializer
 
             with tf.Session() as sess:
                 sess.run(init)
                 #sess.run(d_tensor)
                 d_val, id_val = sess.run([d_tensor, id_tensor])
-                print(D.shape)
-                print(d_val.shape)
-                print(D[0,0,0])
-                print(d_val[0,0])
-                print(d_val[:,:].all() == D[0,:,:].all())
-                #id_val = sess.run(id_tensor)
                 id_val = id_val.decode()
-                print(id_val)
-                print(ID[0])
-                print(id_val == ID[0])       #os.remove(file_path)
+                assert( id_val == ID[0])
+                assert(d_val.all() == D[0,:,:].all())
+                print('removing file {}'.format(file_path))
+                #os.chmod(file_path, 0o777)
+                os.remove(file_path)
+                #shutil.rmtree(file_path)
         except Exception as e:
             print(e)
             print('ERROR: unable to write data from file {}'.format(file_path))
         it += 1
-        if it > 5:
-            break
         
 
 
