@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import tensorflow as tf
 
 def array_to_tfrecords(D, Q, A, DL, QL, ID, output_file):
@@ -56,8 +57,9 @@ def read_tfrecords(file_names,
 
 if __name__ == "__main__":
     #data = np.load('/home/louis/datasets/moving_mnist/mnist_test_seq.npy')
-    data = np.load('/home/louis/AML-Project/padded_train_data1.0.npz')
+    #data = np.load('/home/louis/AML-Project/padded_train_data1.0.npz')
     
+    """
     data = data.f.arr_0
     #data = np.load('/home/louis/datasets/moving_mnist/small1.npy')
     #print(data.shape)
@@ -73,7 +75,6 @@ if __name__ == "__main__":
     #print(ID)
     #print(len(DL))
     #print(DL.shape)
-    """
     D = data[0][0]
     Q = data[0][1]
     A = data[0][2]
@@ -84,21 +85,79 @@ if __name__ == "__main__":
     print(D.shape)
     print(Q.shape)
         
-    """
     array_to_tfrecords(D=D, Q=Q, A=A, DL=DL, QL=QL, ID=ID, output_file="test.tfrecord")
     print('s', np.prod(D.shape))
-    """
     for i in range(100):
         sliced_data = data[:,100*i:100*(i+1),:,:]
         print(sliced_data.flatten().shape)
         array_to_tfrecords(sliced_data, "file{}.tfrecord".format(i+1))
-    """
     #filelist = ["/home/louis/datasets/moving_mnist/tfrecords/file{}.tfrecord".format(i) for i in range(1,101)]
     #recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(8192000,))
     #recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(1225600,))
     recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, d_shape=D.shape, q_shape=Q.shape, a_shape=A.shape, l=len(DL))
+    """
+    
+    it = 0
+    for file_name in os.listdir('/home/shared/data/batched_data/'):
+        file_path = os.path.join('/home/shared/data/batched_data/', file_name)
+        np_data = np.load(file_path)
+        data = np_data.f.arr_0
+        print(type(data))
+        D = data[0][0][:,:600,:]
+        print(D.shape)
+        D = np.float32(D)
+        Q = data[0][1]
+        A = data[0][2]
+        Q = np.float32(Q)
+        ID = data[0][3]
+        DL = data[1][0]
+        QL = data[1][1]
+        out_file_path = '/home/shared/data/tfrecords/file{}.tfrecord'.format(it) 
+
+        try:
+            array_to_tfrecords(D=D, Q=Q, A=A, DL=DL, QL=QL, ID=ID, output_file=out_file_path)
+            print('Writing to file {}'.format(out_file_path))
+            #recovered = read_tfrecords(file_names=("/home/shared/data/tfrecords/file0.tfrecord"), buffer_size=100, d_shape=D.shape, q_shape=Q.shape, a_shape=A.shape, l=len(DL))
+            recovered = read_tfrecords(file_names=(out_file_path), buffer_size=100, d_shape=D.shape, q_shape=Q.shape, a_shape=A.shape, l=len(DL))
+            iter_ = recovered.make_initializable_iterator()
+            tensor_dict = iter_.get_next()
+
+            d_tensor = tensor_dict['D']
+            id_tensor = tensor_dict['ID']
+            print(d_tensor)
+            print(d_tensor.get_shape())
+            init = iter_.initializer
+
+            with tf.Session() as sess:
+                sess.run(init)
+                #sess.run(d_tensor)
+                d_val, id_val = sess.run([d_tensor, id_tensor])
+                print(D.shape)
+                print(d_val.shape)
+                print(D[0,0,0])
+                print(d_val[0,0])
+                print(d_val[:,:].all() == D[0,:,:].all())
+                #id_val = sess.run(id_tensor)
+                id_val = id_val.decode()
+                print(id_val)
+                print(ID[0])
+                print(id_val == ID[0])       #os.remove(file_path)
+        except Exception as e:
+            print(e)
+            print('ERROR: unable to write data from file {}'.format(file_path))
+        it += 1
+        if it > 5:
+            break
+        
+
+
+
+
+
+
     iter_ = recovered.make_initializable_iterator()
     tensor_dict = iter_.get_next()
+
     d_tensor = tensor_dict['D']
     id_tensor = tensor_dict['ID']
     print(d_tensor)
@@ -109,16 +168,13 @@ if __name__ == "__main__":
         sess.run(init)
         #sess.run(d_tensor)
         d_val, id_val = sess.run([d_tensor, id_tensor])
-        #print(d_val)
-        #print(D)
         print(D.shape)
         print(d_val.shape)
+        print(type(D[0,0,0]))
+        print(type(d_val[0,0]))
         print(d_val[:,:].all() == D[0,:,:].all())
         #id_val = sess.run(id_tensor)
-        print(id_val)
         id_val = id_val.decode()
         print(id_val)
         print(ID[0])
         print(id_val == ID[0])
-        print(id_val in ID)
-        print(ID.index(id_val))
