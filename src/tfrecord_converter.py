@@ -22,7 +22,7 @@ def array_to_tfrecords(D, Q, A, DL, QL, ID, output_file):
 
 
 def parse_proto(example_proto, d_shape=(640,766,50), q_shape=(640,60,50), a_shape=(640,2), l=640):
-    print(d_shape, q_shape, a_shape, l)
+    #print(d_shape, q_shape, a_shape, l)
     features = {
         'D': tf.FixedLenFeature((d_shape), tf.float32),
         'Q': tf.FixedLenFeature((q_shape), tf.float32),
