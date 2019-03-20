@@ -167,7 +167,7 @@ tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
-with tf.namescope("paramters"):
+with tf.name_scope("parameters"):
     tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
     tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
     tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
