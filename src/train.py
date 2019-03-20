@@ -167,6 +167,13 @@ tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
+with tf.namescope("paramters"):
+    tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
+    tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
+    tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
+    tf.summary.scalar('keep_prob', tf.constant(ARGS.keep_prob))
+    tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
+
 # For Tensorboard
 merged = tf.summary.merge_all()
 summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
@@ -182,7 +189,8 @@ with tf.Session() as sess:
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
     best_em_score = 0
-    for i in range(ARGS.num_epochs):
+    batch_num = 0
+    for epoch in range(ARGS.num_epochs):
         sess.run(train_init_op)
         prev_time = time.time()
         while True:
@@ -191,10 +199,11 @@ with tf.Session() as sess:
                 print(loss_val)
                 print(utils.time_format(time.time() - prev_time))
                 prev_time = time.time()
+                writer.add_summary(summary, batch_num)
+                batch_num += 1
                 if ARGS.test:
                     break
             except tf.errors.OutOfRangeError:
-                writer.add_summary(summary, i)
                 new_em_score = andrei_em_score
                 if new_em_score > best_em_score:
                     best_em_score = new_em_score 
@@ -203,12 +212,6 @@ with tf.Session() as sess:
                 else:
                     print("No improvement in EM score, not saving")
                 break
-
-                break           
-
-        if tolerance == 0:
-            print('Tolerance threshold reached, early-stopping')
-            break
 
     train_end_time = time.time()
 
