@@ -254,7 +254,7 @@ else:
             loss_val, start_predict, end_predict = sess.run([mean_loss, s, e], feed_dict = feed_dict)
             start_correct = start_l[batch_num: batch_num + ARGS.batch_size]
             end_correct = end_l[batch_num: batch_num + ARGS.batch_size]
-            
+
             # for i in range(ARGS.batch_size):
             #     print("Question with ID: ", questions_ids[batch_num + i])
             #     print("Correct (start, end): ", (start_correct[i], end_correct[i]))
@@ -275,7 +275,12 @@ else:
                     print("___________________________")
             print("Partial EM score: ", exact_matches / total_count)
 
+        print()
+        print("_______________________________")
+        print("Total datapoints: ", total_count)
+        print("Exact matches: ", exact_matches)
         print("FINAL EM score: ", exact_matches / total_count)
+        print("_______________________________")
 
 """
 with tf.Session() as sess:
