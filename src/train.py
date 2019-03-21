@@ -8,6 +8,7 @@ import time
 import datetime
 import os
 import utils
+import random
 from tensorflow.python.client import timeline
 
 start_time = time.time()
@@ -19,13 +20,13 @@ logging.getLogger('tensorflow').setLevel(50)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs to train for")
+parser.add_argument("--num_epochs", default=100, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 #parser.add_argument("--num_units", default=200, type=int,help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=32, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=200, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
-parser.add_argument("--hidden_size", default=100, type=int, help="Size of the hidden state")
+parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=0.85, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
@@ -188,7 +189,7 @@ with tf.name_scope("paramters"):
 # For Tensorboard
 merged = tf.summary.merge_all()
 #summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
-summaryDirectory = "summaries/"
+summaryDirectory = "summaries/" + str(datetime.datetime.now())
 summaryDirectory = summaryDirectory.replace('.', '_').replace(':', '-').replace(' ', '_')
 tf.gfile.MkDir(summaryDirectory)
 writer = tf.summary.FileWriter(summaryDirectory)
@@ -209,6 +210,10 @@ with tf.Session() as sess:
         batch_num = 0
         print("\nEpoch:", epoch)
         batch_size = ARGS.batch_size
+        shuffling = list(zip(input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths))
+        random.shuffle(shuffling) 
+        input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
+
         for batch_num in range(0,dataset_length,batch_size):
             if batch_num+batch_size > dataset_length:
                 break
@@ -234,9 +239,9 @@ with tf.Session() as sess:
         #***Put your score computation here
         #new_em_score = andrei_em_score
         new_em_score = 10
-        if new_em_score > best_em_score:
+        if new_em_score > 0:
             #save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
-            save_path = saver.save(sess, "checkpoints/model.ckpt")
+            save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
             print("EM score improved from %d to %d. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
             best_em_score = new_em_score 
         else:
