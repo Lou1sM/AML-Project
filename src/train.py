@@ -94,8 +94,8 @@ with tf.name_scope("encoder"):
     #end_labels = tf.one_hot(a[:,1], 600)
 
     # Create single nodes for labels, feed_dict version
-    start_labels = tf.one_hot(starting_labels, 766)
-    end_labels = tf.one_hot(ending_labels, 766)
+    start_labels = tf.one_hot(starting_labels, 600)
+    end_labels = tf.one_hot(ending_labels, 600)
 
 with tf.name_scope("decoder"):
     # Static tensor to be re-used in main loop iterations
