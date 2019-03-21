@@ -23,20 +23,23 @@ parser.add_argument("--num_epochs", default=1, type=int, help="Number of epochs 
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 #parser.add_argument("--num_units", default=200, type=int,help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=128, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=256, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
-parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
+parser.add_argument("--hidden_size", default=100, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=0.85, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
-parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
+parser.add_argument("--pool_size", default=8, type=int, help="Number of units to pool over in HMN sub-network")
 parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
+parser.add_argument("--early_stop", default=None, type=int, help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
 
 ARGS = parser.parse_args()
 
+if ARGS.early_stop != None: 
+    ARGS.validate = True
 
+print(ARGS.test)
 
-"""
 with tf.name_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
     print("In train.py: get_data finished.")
@@ -50,24 +53,32 @@ with tf.name_scope("data_prep"):
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
 
 """
+print(ARGS.validate)
 filename_dataset = tf.data.Dataset.list_files('/home/shared/data/tfrecords/*')
-dataset = tfrecord_converter.read_tfrecords(file_names=filename_dataset, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
-dataset = dataset.shuffle(10000)
+train_files = ['/home/shared/data/tfrecords/file{}.tfrecord'.format(i) for i in range(120)]
+print(train_files)
+eval_files = ['/home/shared/data/tfrecords/file{}.tfrecord'.format(i) for i in range(120,139)]
+dataset = tfrecord_converter.read_tfrecords(file_names=train_files, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
+dataset = dataset.shuffle(1000)
 dataset = dataset.batch(ARGS.batch_size).prefetch(1)
 
-#validation_dataset = tfrecord_converter.read_tfrecords(file_names=eval_files, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
-#validation_dataset = validation_dataset.shuffle(1000)
-#validation_dataset = validation_dataset.batch(ARGS.batch_size).prefetch(1)
-#val_init_op = iterator.make_initializer(validation_dataset)
+#validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'), d_shape=[32,766,50], q_shape=[32,60,50], a_shape=[32,2], l=32)
+validation_dataset = tfrecord_converter.read_tfrecords(file_names=eval_files, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
+validation_dataset = validation_dataset.shuffle(1000)
+validation_dataset = validation_dataset.batch(ARGS.batch_size).prefetch(1)
+#dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
+#dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
 iterator = tf.data.Iterator.from_structure(dataset.output_types, dataset.output_shapes)
 
 train_init_op = iterator.make_initializer(dataset)
+val_init_op = iterator.make_initializer(validation_dataset)
 data_dict = iterator.get_next()
 d = data_dict['D']
 q = data_dict['Q']
 a = data_dict['A']
 doc_l = data_dict['DL']
 que_l = data_dict['QL']
+"""
 
 
 with tf.name_scope("encoder"):
@@ -80,12 +91,12 @@ with tf.name_scope("encoder"):
     )
 
     # Create single nodes for labels, data version
-    start_labels = tf.one_hot(a[:,0], 600)
-    end_labels = tf.one_hot(a[:,1], 600)
+    #start_labels = tf.one_hot(a[:,0], 600)
+    #end_labels = tf.one_hot(a[:,1], 600)
 
     # Create single nodes for labels, feed_dict version
-    #start_labels = tf.one_hot(starting_labels, 766)
-    #end_labels = tf.one_hot(ending_labels, 766)
+    start_labels = tf.one_hot(starting_labels, 766)
+    end_labels = tf.one_hot(ending_labels, 766)
 
 with tf.name_scope("decoder"):
     # Static tensor to be re-used in main loop iterations
@@ -167,53 +178,118 @@ tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
-with tf.name_scope("parameters"):
-    tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
-    tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
-    tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
-    tf.summary.scalar('keep_prob', tf.constant(ARGS.keep_prob))
-    tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
-
 # For Tensorboard
 merged = tf.summary.merge_all()
-summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
+#summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
+summaryDirectory = "summaries/"
 summaryDirectory = summaryDirectory.replace('.', '_').replace(':', '-').replace(' ', '_')
 tf.gfile.MkDir(summaryDirectory)
 writer = tf.summary.FileWriter(summaryDirectory)
 writer.add_graph(tf.get_default_graph())
 
 saver = tf.train.Saver()
+loss_val = -1
+if ARGS.early_stop != None:
+    base_tolerance = ARGS.early_stop
+else:
+    base_tolerance = ARGS.num_epochs
+best_loss_val = -1
+
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
-    best_em_score = 0
-    batch_num = 0
+
+    dataset_length = len(input_d_vecs)
+    num_batchs = dataset_length//ARGS.batch_size 
+
     for epoch in range(ARGS.num_epochs):
+        print("\nEpoch:", epoch)
+        batch_size = ARGS.batch_size
+        for batch_num in range(0,dataset_length,batch_size):
+            if batch_num+batch_size > dataset_length:
+                break
+            #batch_time = time.time()
+            feed_dict={
+                d:input_d_vecs[batch_num:batch_num+batch_size], 
+                q:input_q_vecs[batch_num: batch_num+batch_size], 
+                starting_labels: start_l[batch_num: batch_num+batch_size], 
+                ending_labels: end_l[batch_num: batch_num+batch_size], 
+                doc_l: documents_lengths[batch_num: batch_num+batch_size], 
+                que_l: questions_lengths[batch_num: batch_num+batch_size]
+                }
+
+            if batch_num//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
+                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
+                writer.add_summary(summary_val, i)
+                print("\tBatch: {}\tloss: {}".format(batch_num//batch_size, loss_val)) 
+            else:
+                sess.run([train_step], feed_dict=feed_dict) 
+            #print(time.time()-batch_time)
+            if ARGS.test:
+                break
+        save_path = saver.save(sess, "checkpoints/model.ckpt.{}".format(epoch))
+        print("Model saved in path: %s" % save_path)
+
+train_end_time = time.time()
+
+print("Train time", utils.time_format(train_end_time - train_start_time))
+"""
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+    train_start_time = time.time()
+    print("Graph-build time: ", utils.time_format(train_start_time - start_time))
+    for i in range(ARGS.num_epochs):
         sess.run(train_init_op)
-        prev_time = time.time()
+        profileFirstBatch = False
         while True:
             try:
-                summary, _, loss_val = sess.run([merged, train_step, mean_loss])
-                print(loss_val)
-                print(utils.time_format(time.time() - prev_time))
-                prev_time = time.time()
-                writer.add_summary(summary, batch_num)
-                batch_num += 1
-                if ARGS.test:
-                    break
-            except tf.errors.OutOfRangeError:
-                new_em_score = andrei_em_score
-                if new_em_score > best_em_score:
-                    best_em_score = new_em_score 
-                    save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
-                    print("EM score improved. Model saved in path: %s" % save_path)
+                if profileFirstBatch:
+                    profileFirstBatch = False
+                    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                    run_metadata = tf.RunMetadata()
+
+                    summary, _, loss_val = sess.run([merged, train_step, mean_loss],
+                                                    options=options,
+                                                    run_metadata=run_metadata)
+
+                    fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+                    chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                    with open('profiling_timeline.json', 'w') as f:
+                        f.write(chrome_trace)
                 else:
-                    print("No improvement in EM score, not saving")
-                break
+                    summary, _, loss_val = sess.run([merged, train_step, mean_loss])
+                    print(loss_val)
+                    if ARGS.test:
+                        break
+            except tf.errors.OutOfRangeError:
+                writer.add_summary(summary, i)
+                if ARGS.validate:
+                    print('\nComputing validiation loss:')
+                    sess.run(val_init_op)
+                    new_loss_val = 0
+                    while True:
+                        try:
+                            new_loss_val += sess.run(mean_loss)
+                        except tf.errors.OutOfRangeError:
+                            print(new_loss_val)
+                            if new_loss_val < best_loss_val or best_loss_val == -1:
+                                best_loss_val = new_loss_val
+                                save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
+                                print("Model saved in path: %s" % save_path)
+                            else:
+                                print("No improvement in loss, not saving")
+                                tolerance -= 1
+                            break
+                break           
+
+        if tolerance == 0:
+            print('Tolerance threshold reached, early-stopping')
+            break
 
     train_end_time = time.time()
 
     print("Train time", utils.time_format(train_end_time - train_start_time))
 
+"""
