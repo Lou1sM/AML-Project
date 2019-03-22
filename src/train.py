@@ -20,65 +20,46 @@ logging.getLogger('tensorflow').setLevel(50)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--num_epochs", default=100, type=int, help="Number of epochs to train for")
+parser.add_argument("--num_epochs", default=200, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
-#parser.add_argument("--num_units", default=200, type=int,help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+#parser.add_argument("--num_units", default=200, type=int,
+#	help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=200, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=128, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=0.85, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
-parser.add_argument("--pool_size", default=8, type=int, help="Number of units to pool over in HMN sub-network")
+parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 #parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
-#parser.add_argument("--early_stop", default=None, type=int, help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
+#parser.add_argument("--early_stop", default=None, type=int, 
+#	help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
 
 ARGS = parser.parse_args()
+keep_probability = ARGS.keep_prob
 
 if ARGS.test:
     print("Running in test mode")
 
 
 with tf.name_scope("data_prep"):
-    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
+    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = ciprian_data_prep_script.get_data("train")
+    input_d_vecs_validation, input_q_vecs_validation, ground_truth_labels_validation, documents_lengths_validation, questions_lengths_validation, questions_ids_validation, all_answers_validation = ciprian_data_prep_script.get_data("test")
     print("In train.py: get_data finished.")
+
     start_l = list(map(lambda x: x[0], ground_truth_labels))
     end_l = list(map(lambda x: x[1], ground_truth_labels))
+
+    start_l_validation = list(map(lambda x: x[0], ground_truth_labels_validation))
+    end_l_validation = list(map(lambda x: x[1], ground_truth_labels_validation))
+
     d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0]), len(input_d_vecs[0][0])])
     q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0]), len(input_q_vecs[0][0])])
     starting_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     ending_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
-
-"""
-print(ARGS.validate)
-filename_dataset = tf.data.Dataset.list_files('/home/shared/data/tfrecords/*')
-train_files = ['/home/shared/data/tfrecords/file{}.tfrecord'.format(i) for i in range(120)]
-print(train_files)
-eval_files = ['/home/shared/data/tfrecords/file{}.tfrecord'.format(i) for i in range(120,139)]
-dataset = tfrecord_converter.read_tfrecords(file_names=train_files, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
-dataset = dataset.shuffle(1000)
-dataset = dataset.batch(ARGS.batch_size).prefetch(1)
-
-#validation_dataset = tfrecord_converter.read_tfrecords(file_names=('test.tfrecord'), d_shape=[32,766,50], q_shape=[32,60,50], a_shape=[32,2], l=32)
-validation_dataset = tfrecord_converter.read_tfrecords(file_names=eval_files, d_shape=[640,600,300], q_shape=[640,60,300], a_shape=[640,2], l=640)
-validation_dataset = validation_dataset.shuffle(1000)
-validation_dataset = validation_dataset.batch(ARGS.batch_size).prefetch(1)
-#dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
-#dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensorslices(x))
-iterator = tf.data.Iterator.from_structure(dataset.output_types, dataset.output_shapes)
-
-train_init_op = iterator.make_initializer(dataset)
-val_init_op = iterator.make_initializer(validation_dataset)
-data_dict = iterator.get_next()
-d = data_dict['D']
-q = data_dict['Q']
-a = data_dict['A']
-doc_l = data_dict['DL']
-que_l = data_dict['QL']
-"""
 
 
 with tf.name_scope("encoder"):
@@ -195,7 +176,16 @@ tf.gfile.MkDir(summaryDirectory)
 writer = tf.summary.FileWriter(summaryDirectory)
 writer.add_graph(tf.get_default_graph())
 
-saver = tf.train.Saver()
+saver = tf.train.Saver(max_to_keep = 100)
+
+time_now = datetime.datetime.now()
+file_name = "log" + str(time_now) + ".txt"
+file_name = file_name.replace(':', '-').replace(' ', '_')
+file = open(file_name, "w")
+
+fileEM_name = "logEM" + str(time_now) + ".txt"
+fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
+fileEM = open(fileEM_name, "w")
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -203,28 +193,34 @@ with tf.Session() as sess:
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
 
     dataset_length = len(input_d_vecs)
-    num_batchs = dataset_length//ARGS.batch_size 
+    num_batchs = dataset_length // ARGS.batch_size 
+
+    dataset_length_validation = len(input_d_vecs_validation)
+    num_batchs_validation = dataset_length_validation // ARGS.batch_size
 
     for epoch in range(ARGS.num_epochs):
-        best_em_score = 0
+        best_em_score = 0.0
         batch_num = 0
+
         print("\nEpoch:", epoch)
+        file.write("Epoch: " + str(epoch) + "\n")
+
         batch_size = ARGS.batch_size
         shuffling = list(zip(input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths))
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
-        for batch_num in range(0,dataset_length,batch_size):
-            if batch_num+batch_size > dataset_length:
+        for batch_num in range(0, dataset_length, batch_size):
+            if batch_num + batch_size > dataset_length:
                 break
             #batch_time = time.time()
-            feed_dict={
-                d:input_d_vecs[batch_num:batch_num+batch_size], 
-                q:input_q_vecs[batch_num: batch_num+batch_size], 
-                starting_labels: start_l[batch_num: batch_num+batch_size], 
-                ending_labels: end_l[batch_num: batch_num+batch_size], 
-                doc_l: documents_lengths[batch_num: batch_num+batch_size], 
-                que_l: questions_lengths[batch_num: batch_num+batch_size]
+            feed_dict = {
+                d: input_d_vecs[batch_num:batch_num + batch_size], 
+                q: input_q_vecs[batch_num: batch_num + batch_size], 
+                starting_labels: start_l[batch_num: batch_num + batch_size], 
+                ending_labels: end_l[batch_num: batch_num + batch_size], 
+                doc_l: documents_lengths[batch_num: batch_num + batch_size], 
+                que_l: questions_lengths[batch_num: batch_num + batch_size]
                 }
 
             if batch_num//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
@@ -236,18 +232,64 @@ with tf.Session() as sess:
             #print(time.time()-batch_time)
             if ARGS.test:
                 break
-        #***Put your score computation here
-        #new_em_score = andrei_em_score
-        new_em_score = 10
+
+        total_count = 0.1
+        exact_matches = 0.1
+
+        for batch_num_validation in range(0, dataset_length_validation, ARGS.batch_size):
+            if(batch_num_validation % 500 == 0):
+                print("Validation Batch: ", batch_num_validation, "\n")
+                file.write("Validation Batch: " + str(batch_num_validation) + "\n")
+                file.flush()
+            if batch_num_validation + ARGS.batch_size >= len(input_d_vecs_validation):
+                break
+
+            feed_dict_validation = {
+                d: input_d_vecs_validation[batch_num_validation:batch_num_validation + ARGS.batch_size], 
+                q: input_q_vecs_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
+                starting_labels: start_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
+                ending_labels: end_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
+                doc_l: documents_lengths_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
+                que_l: questions_lengths_validation[batch_num_validation: batch_num_validation + ARGS.batch_size]
+                }
+
+            loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, s, e], feed_dict = feed_dict_validation)
+            start_correct_validation = start_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size]
+            end_correct_validation = end_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size]
+
+            for i in range(ARGS.batch_size):
+                total_count += 1.0
+                ok = 0
+                for ans in all_answers_validation[batch_num_validation + i]:
+                    if(ans == [start_predict_validation[i], end_predict_validation[i]]):
+                        ok = 1
+                if(ok == 1): 
+                    exact_matches += 1.0
+
+                if(batch_num_validation % 100 == 0):
+                    file.write("Question with ID: " + str(questions_ids_validation[batch_num_validation + i]))
+                    file.write("\n")
+                    file.write("Correct (start, end): " + str(all_answers_validation[batch_num_validation + i]))
+                    file.write("\n")
+                    file.write("Predicted (start, end): " + str((start_predict_validation[i], end_predict_validation[i])))
+                    file.write("\n")
+                    file.write("___________________________\n")
+                    file.flush()
+
+        new_em_score = exact_matches / total_count
+
         if new_em_score > 0:
             #save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
             save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
             print("EM score improved from %d to %d. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
+            fileEM.write("Epoch number:" + str(epoch))
+            fileEM.write("\n")
+            fileEM.write("EM score improved from " + str(best_em_score) + " to " + str(new_em_score) + ". Model saved in path: " + str(save_path))
+            fileEM.write("\n")
+            fileEM.flush()
             best_em_score = new_em_score 
         else:
             print("No improvement in EM score, not saving")
-        break
-
 
 train_end_time = time.time()
 

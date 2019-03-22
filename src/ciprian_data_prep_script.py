@@ -1,20 +1,34 @@
 import numpy as np
 
-def get_data():
+def get_data(typeData):
+    if(typeData == "train"):
         filename = 'data/padded_train_data_shuffled.npy'
-        # Taking only a slice of size 1 from the data (just one element)
-        # The code will work with all the data once we feed into it the 
-        # padded sequences, i.e. once all tensor elements agree on sizes
-        # Keep it like this until we get one point running through the whole architecture
-        try:
-            data_array = np.load(filename)
-        except:
-            data_array = np.load('../data/padded_train_data.npy')
-        print("Get Data stage: ciprian_data_prep read ", filename, " of shape: ", data_array.shape)
-        documents = data_array[0][0]
-        questions = data_array[0][1]
-        answers = data_array[0][2]
-        lengths_documents = data_array[1][0]
-        lengths_questions = data_array[1][1]
-        size = len(lengths_documents)
-        return documents[:size], questions[:size], answers[:size], lengths_documents[:size], lengths_questions[:size] 
+    elif (typeData == "test"):
+        filename = 'data/padded_test_data_shuffled.npy'
+
+    try:
+        data_array = np.load(filename)
+    except:
+        data_array = np.load('..' + filename)
+    print("Get Data stage: ciprian_data_prep read ", filename, " of shape: ", data_array.shape)
+
+    documents = data_array[0][0]
+    questions = data_array[0][1]
+    answers = data_array[0][2]
+    lengths_documents = data_array[1][0]
+    lengths_questions = data_array[1][1]
+    size = len(lengths_documents)
+    all_answers = []
+    ids_questions = []
+
+    if(typeData == "test"):
+        answers = list(map(lambda x: x[0], data_array[0][2]))
+        all_answers = data_array[0][2]
+        ids_questions = data_array[0][3]
+
+    # if(typeData == "train"):
+    #     size = 200
+    # else:
+    #     size = 200
+
+    return documents[:size], questions[:size], answers[:size], lengths_documents[:size], lengths_questions[:size], ids_questions[:size], all_answers[:size]
