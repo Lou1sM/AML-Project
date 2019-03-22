@@ -199,9 +199,8 @@ with tf.Session() as sess:
     num_batchs_validation = dataset_length_validation // ARGS.batch_size
 
     best_em_score = 0.0
-    
+    global_batch_num = 0
     for epoch in range(ARGS.num_epochs):
-        batch_num = 0
 
         print("\nEpoch:", epoch)
         file.write("Epoch: " + str(epoch) + "\n")
@@ -211,25 +210,28 @@ with tf.Session() as sess:
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
-        for batch_num in range(0, dataset_length, batch_size):
-            if batch_num + batch_size > dataset_length:
+        for dp_index in range(0, dataset_length, batch_size):
+            if dp_index + batch_size > dataset_length:
                 break
             #batch_time = time.time()
             feed_dict = {
-                d: input_d_vecs[batch_num:batch_num + batch_size], 
-                q: input_q_vecs[batch_num: batch_num + batch_size], 
-                starting_labels: start_l[batch_num: batch_num + batch_size], 
-                ending_labels: end_l[batch_num: batch_num + batch_size], 
-                doc_l: documents_lengths[batch_num: batch_num + batch_size], 
-                que_l: questions_lengths[batch_num: batch_num + batch_size]
+                d: input_d_vecs[dp_index:dp_index + batch_size],
+                q: input_q_vecs[dp_index: dp_index + batch_size],
+                starting_labels: start_l[dp_index: dp_index + batch_size],
+                ending_labels: end_l[dp_index: dp_index + batch_size],
+                doc_l: documents_lengths[dp_index: dp_index + batch_size],
+                que_l: questions_lengths[dp_index: dp_index + batch_size]
                 }
 
-            if batch_num//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
+            if dp_index//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
                 _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
-                writer.add_summary(summary_val, i)
-                print("\tBatch: {}\tloss: {}".format(batch_num//batch_size, loss_val)) 
+                writer.add_summary(summary_val, global_batch_num)
+                print("\tBatch: {}\tloss: {}".format(dp_index // batch_size, loss_val))
             else:
-                sess.run([train_step], feed_dict=feed_dict) 
+                sess.run([train_step], feed_dict=feed_dict)
+
+            global_batch_num += 1
+
             #print(time.time()-batch_time)
             if ARGS.test:
                 break
@@ -237,38 +239,38 @@ with tf.Session() as sess:
         total_count = 0.1
         exact_matches = 0.1
 
-        for batch_num_validation in range(0, dataset_length_validation, ARGS.batch_size):
-            if(batch_num_validation % 500 == 0):
-                print("Validation Batch: ", batch_num_validation, "\n")
-                file.write("Validation Batch: " + str(batch_num_validation) + "\n")
+        for dp_index_validation in range(0, dataset_length_validation, ARGS.batch_size):
+            if(dp_index_validation % 500 == 0):
+                print("Validation Batch: ", dp_index_validation, "\n")
+                file.write("Validation Batch: " + str(dp_index_validation) + "\n")
                 file.flush()
-            if batch_num_validation + ARGS.batch_size >= len(input_d_vecs_validation):
+            if dp_index_validation + ARGS.batch_size >= len(input_d_vecs_validation):
                 break
 
             feed_dict_validation = {
-                d: input_d_vecs_validation[batch_num_validation:batch_num_validation + ARGS.batch_size], 
-                q: input_q_vecs_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
-                starting_labels: start_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
-                ending_labels: end_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
-                doc_l: documents_lengths_validation[batch_num_validation: batch_num_validation + ARGS.batch_size], 
-                que_l: questions_lengths_validation[batch_num_validation: batch_num_validation + ARGS.batch_size]
+                d: input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size],
+                q: input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
+                starting_labels: start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
+                ending_labels: end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
+                doc_l: documents_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
+                que_l: questions_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
                 }
 
             loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, s, e], feed_dict = feed_dict_validation)
-            start_correct_validation = start_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size]
-            end_correct_validation = end_l_validation[batch_num_validation: batch_num_validation + ARGS.batch_size]
+            start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
+            end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
 
             for i in range(ARGS.batch_size):
                 total_count += 1.0
-                for ans in all_answers_validation[batch_num_validation + i]:
+                for ans in all_answers_validation[dp_index_validation + i]:
                     if ans == [start_predict_validation[i], end_predict_validation[i]]:
                         exact_matches += 1.0
                         break
 
-                if(batch_num_validation % 100 == 0):
-                    file.write("Question with ID: " + str(questions_ids_validation[batch_num_validation + i]))
+                if(dp_index_validation % 100 == 0):
+                    file.write("Question with ID: " + str(questions_ids_validation[dp_index_validation + i]))
                     file.write("\n")
-                    file.write("Correct (start, end): " + str(all_answers_validation[batch_num_validation + i]))
+                    file.write("Correct (start, end): " + str(all_answers_validation[dp_index_validation + i]))
                     file.write("\n")
                     file.write("Predicted (start, end): " + str((start_predict_validation[i], end_predict_validation[i])))
                     file.write("\n")
