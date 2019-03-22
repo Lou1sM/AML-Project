@@ -198,8 +198,9 @@ with tf.Session() as sess:
     dataset_length_validation = len(input_d_vecs_validation)
     num_batchs_validation = dataset_length_validation // ARGS.batch_size
 
+    best_em_score = 0.0
+    
     for epoch in range(ARGS.num_epochs):
-        best_em_score = 0.0
         batch_num = 0
 
         print("\nEpoch:", epoch)
@@ -259,12 +260,10 @@ with tf.Session() as sess:
 
             for i in range(ARGS.batch_size):
                 total_count += 1.0
-                ok = 0
                 for ans in all_answers_validation[batch_num_validation + i]:
-                    if(ans == [start_predict_validation[i], end_predict_validation[i]]):
-                        ok = 1
-                if(ok == 1): 
-                    exact_matches += 1.0
+                    if ans == [start_predict_validation[i], end_predict_validation[i]]:
+                        exact_matches += 1.0
+                        break
 
                 if(batch_num_validation % 100 == 0):
                     file.write("Question with ID: " + str(questions_ids_validation[batch_num_validation + i]))
