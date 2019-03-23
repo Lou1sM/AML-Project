@@ -18,6 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import logging
 logging.getLogger('tensorflow').setLevel(50)
 
+prob = tf.placeholder_with_default(0.7, shape=())
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=200, type=int, help="Number of epochs to train for")
@@ -25,16 +26,17 @@ parser.add_argument("--restore", action="store_true", default=False, help="Wheth
 #parser.add_argument("--num_units", default=200, type=int,
 #	help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=128, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
-parser.add_argument("--keep_prob", default=0.85, type=float, help="Keep probability for question and document encodings.")
+parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 #parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
 #parser.add_argument("--early_stop", default=None, type=int, 
 #	help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
+
 
 ARGS = parser.parse_args()
 keep_probability = ARGS.keep_prob
@@ -250,6 +252,7 @@ with tf.Session() as sess:
                 break
 
             feed_dict_validation = {
+            	prob: 1,
                 d: input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size],
                 q: input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
                 starting_labels: start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
