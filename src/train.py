@@ -199,6 +199,7 @@ with tf.Session() as sess:
     num_batchs_validation = dataset_length_validation // ARGS.batch_size
 
     best_em_score = 0.0
+    best_avg_f1 = 0.0
     global_batch_num = 0
     for epoch in range(ARGS.num_epochs):
 
@@ -238,6 +239,7 @@ with tf.Session() as sess:
 
         total_count = 0.1
         exact_matches = 0.1
+        running_f1 = 0.1
 
         for dp_index_validation in range(0, dataset_length_validation, ARGS.batch_size):
             if(dp_index_validation % 500 == 0):
@@ -262,10 +264,17 @@ with tf.Session() as sess:
 
             for i in range(ARGS.batch_size):
                 total_count += 1.0
+                got_exact_match = False
+                best_f1_dp = 0.0
                 for ans in all_answers_validation[dp_index_validation + i]:
+                    new_f1_dp = utils.compute_f1_from_indices(start_predict_validation[i], end_predict_validation[i], ans[0], ans[1])
+                    if new_f1_dp > best_f1_dp:
+                        best_f1_dp = new_f1_dp
                     if ans == [start_predict_validation[i], end_predict_validation[i]]:
-                        exact_matches += 1.0
-                        break
+                        got_exact_match = True
+                if got_exact_match:
+                    exact_matches += 1
+                running_f1 += best_f1_dp
 
                 if(dp_index_validation % 100 == 0):
                     file.write("Question with ID: " + str(questions_ids_validation[dp_index_validation + i]))
@@ -277,15 +286,24 @@ with tf.Session() as sess:
                     file.write("___________________________\n")
                     file.flush()
 
+            if ARGS.test:
+                break
+            if dp_index_validation == 100:
+                break
         new_em_score = exact_matches / total_count
+        new_avg_f1 = running_f1 / total_count
+        if new_avg_f1 > best_avg_f1:
+            best_avg_f1 = new_avg_f1
 
         if new_em_score > 0:
             #save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
             save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
-            print("EM score improved from %d to %d. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
+            print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
+            print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
             fileEM.write("Epoch number:" + str(epoch))
             fileEM.write("\n")
             fileEM.write("EM score improved from " + str(best_em_score) + " to " + str(new_em_score) + ". Model saved in path: " + str(save_path))
+            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(new_em_score) + ".")
             fileEM.write("\n")
             fileEM.flush()
             best_em_score = new_em_score 

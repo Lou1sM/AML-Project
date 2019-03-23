@@ -108,6 +108,28 @@ def time_format(x):
         x = round(x, 1)
         return str(hours) + 'h' + str(minutes) + 'm' + str(x) + 's'
 
+
+def compute_f1_from_indices(start_pred, end_pred, start_gs, end_gs):
+    assert end_gs >= start_gs
+
+    # Deal with degenerate case separately, NB: this may need
+    # modification if using non-answerable questions
+    if start_pred > end_pred:
+        return 0
+
+    tp = max(0, min(end_pred, end_gs) - max(start_pred, start_gs) + 1)
+    fp = max(0, end_pred - end_gs) + max(0, start_gs - start_pred)
+    fn = max(0, end_gs - end_pred) + max(0, start_pred - start_gs)
+
+    if tp == 0:
+        return 0
+    # Total counts should add up to the union of words in pred and gs
+    assert tp + fp + fn == max(0, max(end_pred, end_gs) - min(start_pred, start_gs) + 1), 'error counts dont add up'
+    prec = tp/(tp+fp)
+    rec = tp/(tp+fn)
+    f1 = 2/((1/prec) + (1/rec))
+    return f1
+
 # Creates summaries for a set of varaiables
 def variable_summaries(var):
   with tf.name_scope('summaries'):
@@ -117,3 +139,12 @@ def variable_summaries(var):
       stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
     tf.summary.scalar('stddev', stddev)
     tf.summary.histogram('histogram', var)
+
+
+if __name__ == "__main__":
+    print(compute_f1_from_indices(1,2,3,4))
+    print(compute_f1_from_indices(1,3,2,4))
+    print(compute_f1_from_indices(1,4,2,4))
+    print(compute_f1_from_indices(2,2,2,5))
+    print(compute_f1_from_indices(100,2,3,4))
+    print(compute_f1_from_indices(1,2,3,4))
