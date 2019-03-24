@@ -225,6 +225,7 @@ file = open(logDirectory + file_name, "w")
 fileEM_name = "logEM" + str(time_now) + ".txt"
 fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
 fileEM = open(logDirectory + fileEM_name, "w")
+fileEM.write("Hyperparameters:" + str(ARGS))
 
 soft_min = tf.nn.softmax(end_labels)
 
@@ -345,24 +346,31 @@ with tf.Session() as sess:
         if new_avg_f1 > best_avg_f1:
             best_avg_f1 = new_avg_f1
 
-        if new_em_score > 0:
-            #save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
+        print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
+        if new_em_score > best_em_score:
+            #save_path = saver.save(sess, "checkpoints/model.ckpt")
             save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
             print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
-            print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
-            fileEM.write("Hyperparameters:" + str(ARGS))
             fileEM.write("Epoch number:" + str(epoch))
             fileEM.write("\n")
-            fileEM.write("EM score improved from " + str(best_em_score) + " to " + str(new_em_score) + ". Model saved in path: " + str(save_path))
+            fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
             fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
-            fileEM.write("\n")
-            fileEM.write("Epoch loss value:" + str(epoch_loss))
-            fileEM.write("\n")
+            #fileEM.write("\n")
+            fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+            fileEM.write("\n\n")
             fileEM.flush()
             best_em_score = new_em_score 
         else:
             print("No improvement in EM score, not saving")
-
+            fileEM.write("Epoch number:" + str(epoch))
+            fileEM.write("\n")
+            fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". No improvement, model not saved.")
+            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
+            #fileEM.write("\n")
+            fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+            fileEM.write("\n\n")
+            fileEM.flush()
+ 
 train_end_time = time.time()
 
 print("Train time", utils.time_format(train_end_time - train_start_time))
