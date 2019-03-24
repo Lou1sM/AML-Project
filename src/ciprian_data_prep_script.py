@@ -9,7 +9,7 @@ def get_data(typeData):
     try:
         data_array = np.load(filename)
     except:
-        data_array = np.load('..' + filename)
+        data_array = np.load('../' + filename)
     print("Get Data stage: ciprian_data_prep read ", filename, " of shape: ", data_array.shape)
 
     documents = data_array[0][0]

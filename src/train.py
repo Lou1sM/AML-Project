@@ -87,11 +87,12 @@ with tf.name_scope("decoder"):
     # Calculate padding mask
     zeros = tf.zeros([ARGS.batch_size, 600, 2*ARGS.hidden_size])
     zeros_set = tf.equal(encoded, zeros)
-    zeros_reduced = tf.reduce_all(zeros_set, 2)
-    padding_mask = tf.logical_not(zeros_reduced)
+    padding_mask_bool = tf.reduce_all(zeros_set, 2)
+    words_mask_bool = tf.logical_not(padding_mask_bool)
+    padding_mask = tf.cast(padding_mask_bool, tf.float32)
+    words_mask = tf.cast(words_mask_bool, tf.float32)
     # A tensor filled with the minimum float values
-    min_float = tf.fill([ARGS.batch_size, 600], tf.to_float(0.5*tf.float32.min))
-    #min_float = tf.fill([ARGS.batch_size, 600], tf.cast(0, tf.float32))
+    min_float = tf.fill([ARGS.batch_size, 600], tf.cast(tf.float32.min, tf.float32))
 
     # Static tensor to be re-used in main loop iterations
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
@@ -142,14 +143,13 @@ with tf.name_scope("decoder"):
                     name="HMN_end"
                 )
 
-            padding_mask = tf.cast(padding_mask, tf.float32)
-            alphas = tf.multiply(alphas, padding_mask)
+            alphas = tf.multiply(alphas, words_mask)
             alphas = tf.add(alphas, tf.multiply(min_float, padding_mask))
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_indices)
 
-            betas = tf.multiply(betas, padding_mask)
+            betas = tf.multiply(betas, words_mask)
             betas = tf.add(betas, tf.multiply(min_float, padding_mask))
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_indices = tf.transpose(tf.stack([batch_indices, e]))
@@ -188,7 +188,9 @@ with tf.name_scope("paramters"):
 # For Tensorboard
 merged = tf.summary.merge_all()
 #summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
-summaryDirectory = "summaries/" + str(datetime.datetime.now())
+summaryDirectory = "summaries/"
+tf.gfile.MkDir(summaryDirectory)
+summaryDirectory += str(datetime.datetime.now())
 summaryDirectory = summaryDirectory.replace('.', '_').replace(':', '-').replace(' ', '_')
 tf.gfile.MkDir(summaryDirectory)
 writer = tf.summary.FileWriter(summaryDirectory)
@@ -197,18 +199,20 @@ writer.add_graph(tf.get_default_graph())
 saver = tf.train.Saver(max_to_keep = 100)
 
 time_now = datetime.datetime.now()
+logDirectory = "logs/"
+tf.gfile.MkDir(logDirectory)
 file_name = "log" + str(time_now) + ".txt"
 file_name = file_name.replace(':', '-').replace(' ', '_')
-file = open(file_name, "w")
+file = open(logDirectory + file_name, "w")
 
 fileEM_name = "logEM" + str(time_now) + ".txt"
 fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
-fileEM = open(fileEM_name, "w")
+fileEM = open(logDirectory + fileEM_name, "w")
 
 soft_min = tf.nn.softmax(end_labels)
 
-with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
-#with tf.Session() as sess:
+#with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
+with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
