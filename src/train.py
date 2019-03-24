@@ -10,6 +10,8 @@ import os
 import utils
 import random
 from tensorflow.python.client import timeline
+from tensorflow.python import debug as tf_debug
+
 
 start_time = time.time()
 
@@ -88,7 +90,8 @@ with tf.name_scope("decoder"):
     zeros_reduced = tf.reduce_all(zeros_set, 2)
     padding_mask = tf.logical_not(zeros_reduced)
     # A tensor filled with the minimum float values
-    min_float = tf.fill([ARGS.batch_size, 600, 2*ARGS.batch_size], tf.float32.min)
+    min_float = tf.fill([ARGS.batch_size, 600], tf.to_float(0.5*tf.float32.min))
+    #min_float = tf.fill([ARGS.batch_size, 600], tf.cast(0, tf.float32))
 
     # Static tensor to be re-used in main loop iterations
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
@@ -139,14 +142,15 @@ with tf.name_scope("decoder"):
                     name="HMN_end"
                 )
 
+            padding_mask = tf.cast(padding_mask, tf.float32)
             alphas = tf.multiply(alphas, padding_mask)
-            alphas = tf.add(alphas, tf.multiply(min_float))
+            alphas = tf.add(alphas, tf.multiply(min_float, padding_mask))
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_indices)
 
             betas = tf.multiply(betas, padding_mask)
-            betas = tf.add(betas, tf.multiply(min_float))
+            betas = tf.add(betas, tf.multiply(min_float, padding_mask))
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_indices = tf.transpose(tf.stack([batch_indices, e]))
             u_e = tf.gather_nd(encoded, e_indices)
@@ -201,7 +205,10 @@ fileEM_name = "logEM" + str(time_now) + ".txt"
 fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
 fileEM = open(fileEM_name, "w")
 
-with tf.Session() as sess:
+soft_min = tf.nn.softmax(end_labels)
+
+with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
+#with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
