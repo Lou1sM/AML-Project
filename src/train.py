@@ -177,7 +177,7 @@ with tf.name_scope("paramters"):
     tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
     tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
     tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
-    tf.summary.scalar('keep_prob', tf.constant(ARGS.keep_prob))
+    tf.summary.scalar('keep_prob', ARGS.keep_prob)
     tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
 
 
@@ -225,6 +225,7 @@ with tf.Session() as sess:
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
+        epoch_loss = 0
         for dp_index in range(0, dataset_length, batch_size):
             if dp_index + batch_size > dataset_length:
                 break
@@ -242,6 +243,7 @@ with tf.Session() as sess:
                 _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
                 writer.add_summary(summary_val, global_batch_num)
                 print("\tBatch: {}\tloss: {}".format(dp_index // batch_size, loss_val))
+                epoch_loss += loss_val
             else:
                 sess.run([train_step], feed_dict=feed_dict)
 
@@ -251,6 +253,7 @@ with tf.Session() as sess:
             if ARGS.test:
                 break
 
+        epoch_loss = epoch_loss/(int(dataset_length/batch_size))
         total_count = 0.1
         exact_matches = 0.1
         running_f1 = 0.1
@@ -315,10 +318,13 @@ with tf.Session() as sess:
             save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
             print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
             print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
+            fileEM.write("Hyperparameters:" + str(ARGS))
             fileEM.write("Epoch number:" + str(epoch))
             fileEM.write("\n")
             fileEM.write("EM score improved from " + str(best_em_score) + " to " + str(new_em_score) + ". Model saved in path: " + str(save_path))
             fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(new_em_score) + ".")
+            fileEM.write("\n")
+            fileEM.write("Epoch loss value:" + str(epoch_loss))
             fileEM.write("\n")
             fileEM.flush()
             best_em_score = new_em_score 
