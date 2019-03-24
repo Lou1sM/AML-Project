@@ -94,8 +94,8 @@ with tf.name_scope("decoder"):
 
     # A tensor filled with the minimum float values
     min_float = tf.fill([ARGS.batch_size, 600], tf.cast(tf.float32.min, tf.float32))
-    s_indices_prev = tf.fill([ARGS.batch_size], -1)
-    e_indices_prev = tf.fill([ARGS.batch_size], -1)
+    s_prev = tf.fill([ARGS.batch_size], -1)
+    e_prev = tf.fill([ARGS.batch_size], -1)
 
     # Persistent loss mask that remembers whether convergence has already taken place
     loss_mask = tf.fill([ARGS.batch_size], True)
@@ -152,14 +152,14 @@ with tf.name_scope("decoder"):
             alphas = tf.multiply(alphas, words_mask)
             alphas = tf.add(alphas, tf.multiply(min_float, padding_mask))
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
-            s_indices = tf.transpose(tf.stack([batch_indices, s]))
-            u_s = tf.gather_nd(encoded, s_indices)
+            s_encoding_indices = tf.transpose(tf.stack([batch_indices, s]))
+            u_s = tf.gather_nd(encoded, s_encoding_indices)
 
             betas = tf.multiply(betas, words_mask)
             betas = tf.add(betas, tf.multiply(min_float, padding_mask))
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
-            e_indices = tf.transpose(tf.stack([batch_indices, e]))
-            u_e = tf.gather_nd(encoded, e_indices)
+            e_encoding_indices = tf.transpose(tf.stack([batch_indices, e]))
+            u_e = tf.gather_nd(encoded, e_encoding_indices)
 
             # Each guess contributes to loss,
             # even the very first
@@ -173,10 +173,10 @@ with tf.name_scope("decoder"):
             )
 
             with tf.name_scope("iteration_" + str(i) + "_loss"):
-                s_mask = tf.equal(s_indices, s_indices_prev)
-                s_indices_prev = s_indices
-                e_mask = tf.equal(e_indices, e_indices_prev)
-                e_indices_prev = e_indices
+                s_mask = tf.equal(s, s_prev)
+                s_prev = s
+                e_mask = tf.equal(e, e_prev)
+                e_prev = e
                 output_same = tf.logical_and(s_mask, e_mask)
                 loss_mask = tf.logical_or(loss_mask, output_same)
                 iteration_loss = s_loss + e_loss
