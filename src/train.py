@@ -174,7 +174,9 @@ with tf.name_scope("decoder"):
 
             with tf.name_scope("iteration_" + str(i) + "_loss"):
                 s_mask = tf.equal(s_indices, s_indices_prev)
+                s_indices_prev = s_indices
                 e_mask = tf.equal(e_indices, e_indices_prev)
+                e_indices_prev = e_indices
                 output_same = tf.logical_and(s_mask, e_mask)
                 loss_mask = tf.logical_or(loss_mask, output_same)
                 iteration_loss = s_loss + e_loss
