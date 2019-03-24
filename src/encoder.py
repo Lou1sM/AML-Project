@@ -96,7 +96,6 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     concat_2 = concat_2[:, :-1, :]  # remove sentinels
 
     BiLSTM_outputs, BiLSTM_final_fw_state, BiLSTM_final_bw_state = dynamic_bilstm(concat_2, documents_lengths, hyperparameters)
-
     return BiLSTM_outputs
  
  

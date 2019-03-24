@@ -82,6 +82,14 @@ with tf.name_scope("encoder"):
     end_labels = tf.one_hot(ending_labels, 600)
 
 with tf.name_scope("decoder"):
+    # Calculate padding mask
+    zeros = tf.zeros([ARGS.batch_size, 600, 2*ARGS.hidden_size])
+    zeros_set = tf.equal(encoded, zeros)
+    zeros_reduced = tf.reduce_all(zeros_set, 2)
+    padding_mask = tf.logical_not(zeros_reduced)
+    # A tensor filled with the minimum float values
+    min_float = tf.fill([ARGS.batch_size, 600, 2*ARGS.batch_size], tf.float32.min)
+
     # Static tensor to be re-used in main loop iterations
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
 
@@ -131,10 +139,14 @@ with tf.name_scope("decoder"):
                     name="HMN_end"
                 )
 
+            alphas = tf.multiply(alphas, padding_mask)
+            alphas = tf.add(alphas, tf.multiply(min_float))
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_indices)
 
+            betas = tf.multiply(betas, padding_mask)
+            betas = tf.add(betas, tf.multiply(min_float))
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_indices = tf.transpose(tf.stack([batch_indices, e]))
             u_e = tf.gather_nd(encoded, e_indices)
