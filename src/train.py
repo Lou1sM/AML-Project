@@ -91,8 +91,14 @@ with tf.name_scope("decoder"):
     words_mask_bool = tf.logical_not(padding_mask_bool)
     padding_mask = tf.cast(padding_mask_bool, tf.float32)
     words_mask = tf.cast(words_mask_bool, tf.float32)
+
     # A tensor filled with the minimum float values
     min_float = tf.fill([ARGS.batch_size, 600], tf.cast(tf.float32.min, tf.float32))
+    s_indices_prev = tf.fill([ARGS.batch_size], -1)
+    e_indices_prev = tf.fill([ARGS.batch_size], -1)
+
+    # Persistent loss mask that remembers whether convergence has already taken place
+    loss_mask = tf.fill([ARGS.batch_size], True)
 
     # Static tensor to be re-used in main loop iterations
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
@@ -167,10 +173,16 @@ with tf.name_scope("decoder"):
             )
 
             with tf.name_scope("iteration_" + str(i) + "_loss"):
+                s_mask = tf.equal(s_indices, s_indices_prev)
+                e_mask = tf.equal(e_indices, e_indices_prev)
+                output_same = tf.logical_and(s_mask, e_mask)
+                loss_mask = tf.logical_or(loss_mask, output_same)
                 iteration_loss = s_loss + e_loss
+                masked_iteration_loss = tf.multiply(iteration_loss, tf.cast(loss_mask, tf.float32))
                 tf.summary.scalar('loss', tf.reduce_mean(iteration_loss))
 
-            loss = iteration_loss if i == 0 else loss + iteration_loss
+            #loss = iteration_loss if i == 0 else loss + iteration_loss
+            loss = masked_iteration_loss if i == 0 else loss + masked_iteration_loss
 
 mean_loss = tf.reduce_mean(loss)
 tf.summary.scalar('total_loss', mean_loss)
