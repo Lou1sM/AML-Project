@@ -94,11 +94,11 @@ with tf.name_scope("decoder"):
 
     # A tensor filled with the minimum float values
     min_float = tf.fill([ARGS.batch_size, 600], tf.cast(tf.float32.min, tf.float32))
-    s_prev = tf.fill([ARGS.batch_size], -1)
-    e_prev = tf.fill([ARGS.batch_size], -1)
 
     # Persistent loss mask that remembers whether convergence has already taken place
     loss_mask = tf.fill([ARGS.batch_size], True)
+    s_prev = tf.fill([ARGS.batch_size], -1)
+    e_prev = tf.fill([ARGS.batch_size], -1)
 
     # Static tensor to be re-used in main loop iterations
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
@@ -107,7 +107,7 @@ with tf.name_scope("decoder"):
     decoding_lstm = tf.contrib.rnn.LSTMCell(num_units=ARGS.hidden_size)
     h = decoding_lstm.zero_state(ARGS.batch_size, dtype=tf.float32)
 
-    # first guess for start- and end-points
+    # First guess for start- and end-points
     u_s = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size])  # Dummy guess start point
     u_e = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size])  # Dummy guess end point
 
@@ -115,13 +115,6 @@ with tf.name_scope("decoder"):
         for i in range(4):
             # LSTM input is concatenation of previous guesses
             usue = tf.concat([u_s, u_e], axis=1)
-            # CudnnLSTM expects input with shape [time_len, batch_size, input_size]
-            # As the inputs across time depend on the previous outputs, we simply set
-            # time_len = 0 and repeat the calculation multiple times while setting
-            # the 'initial' state to the previous output. CudnnLSTMs output is
-            # similarly time-major (has a first dimension that spans time).
-
-            # an initial_state of None corresponds to initialisation with zeroes
             lstm_output, h = decoding_lstm(inputs=usue, state=h)
             # Make an estimation of start- and end-points. Define the
             # set of graph nodes for the HMN twice in two different namespaces
@@ -174,29 +167,29 @@ with tf.name_scope("decoder"):
 
             with tf.name_scope("iteration_" + str(i) + "_loss"):
                 s_mask = tf.equal(s, s_prev)
-                s_prev = s
                 e_mask = tf.equal(e, e_prev)
-                e_prev = e
                 output_same = tf.logical_and(s_mask, e_mask)
-                loss_mask = tf.logical_or(loss_mask, output_same)
+                s_prev = s
+                e_prev = e
+                loss_mask = tf.logical_and(loss_mask, tf.logical_not(output_same))
                 iteration_loss = s_loss + e_loss
                 masked_iteration_loss = tf.multiply(iteration_loss, tf.cast(loss_mask, tf.float32))
                 tf.summary.scalar('loss', tf.reduce_mean(iteration_loss))
+                tf.summary.scalar('masked_it_loss_summary', tf.reduce_mean(masked_iteration_loss))
 
             #loss = iteration_loss if i == 0 else loss + iteration_loss
-            loss = masked_iteration_loss if i == 0 else loss + masked_iteration_loss
+            with tf.control_dependencies([tf.assert_greater_equal(iteration_loss, masked_iteration_loss)]):
+                loss = masked_iteration_loss if i == 0 else loss + masked_iteration_loss
 
-
-            loss_mask = tf.cast(tf.zeros(loss.shape), tf.int32)
-            final_s = s if i == 0 else final_s + tf.multiply(loss_mask, s - final_s)
-            final_e = e if i == 0 else final_e + tf.multiply(loss_mask, e - final_e)
+            final_s = s if i == 0 else final_s + tf.multiply(tf.cast(loss_mask, tf.int32), s - final_s)
+            final_e = e if i == 0 else final_e + tf.multiply(tf.cast(loss_mask, tf.int32), e - final_e)
 
 mean_loss = tf.reduce_mean(loss)
 tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
-with tf.name_scope("paramters"):
+with tf.name_scope("parameters"):
     tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
     tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
     tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
@@ -270,7 +263,7 @@ with tf.Session() as sess:
                 }
 
             if dp_index//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
-                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
+                _, loss_val, summary_val, = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
                 writer.add_summary(summary_val, global_batch_num)
                 print("\tBatch: {}\tloss: {}".format(dp_index // batch_size, loss_val))
                 epoch_loss += loss_val
@@ -352,7 +345,7 @@ with tf.Session() as sess:
             fileEM.write("Epoch number:" + str(epoch))
             fileEM.write("\n")
             fileEM.write("EM score improved from " + str(best_em_score) + " to " + str(new_em_score) + ". Model saved in path: " + str(save_path))
-            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(new_em_score) + ".")
+            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
             fileEM.write("\n")
             fileEM.write("Epoch loss value:" + str(epoch_loss))
             fileEM.write("\n")
