@@ -186,6 +186,11 @@ with tf.name_scope("decoder"):
             #loss = iteration_loss if i == 0 else loss + iteration_loss
             loss = masked_iteration_loss if i == 0 else loss + masked_iteration_loss
 
+
+            loss_mask = tf.cast(tf.zeros(loss.shape), tf.int32)
+            final_s = s if i == 0 else final_s + tf.multiply(loss_mask, s - final_s)
+            final_e = e if i == 0 else final_e + tf.multiply(loss_mask, e - final_e)
+
 mean_loss = tf.reduce_mean(loss)
 tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
@@ -301,7 +306,7 @@ with tf.Session() as sess:
                 que_l: questions_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
                 }
 
-            loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, s, e], feed_dict = feed_dict_validation)
+            loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, final_s, final_e], feed_dict = feed_dict_validation)
             start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
             end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
 
