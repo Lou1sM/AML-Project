@@ -65,6 +65,19 @@ with tf.name_scope("data_prep"):
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
 
+with tf.name_scope("performance_metrics"):
+    em_score_log = tf.placeholder(tf.float32, ())
+    f1_score_log = tf.placeholder(tf.float32, ())
+    tf.summary.scalar('em_score', em_score_log)
+    tf.summary.scalar('f1_score', f1_score_log)
+
+with tf.name_scope("parameters"):
+    tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
+    tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
+    tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
+    tf.summary.scalar('keep_prob', ARGS.keep_prob)
+    tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
+
 
 with tf.name_scope("encoder"):
     encoded = encoder.encoder(
@@ -189,14 +202,6 @@ tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
-with tf.name_scope("parameters"):
-    tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
-    tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
-    tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
-    tf.summary.scalar('keep_prob', ARGS.keep_prob)
-    tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
-
-
 # For Tensorboard
 merged = tf.summary.merge_all()
 #summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
@@ -248,6 +253,8 @@ with tf.Session() as sess:
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
+        new_avg_f1 = 0
+        new_em_score = 0
         epoch_loss = 0
         for dp_index in range(0, dataset_length, batch_size):
             if dp_index + batch_size > dataset_length:
@@ -259,7 +266,9 @@ with tf.Session() as sess:
                 starting_labels: start_l[dp_index: dp_index + batch_size],
                 ending_labels: end_l[dp_index: dp_index + batch_size],
                 doc_l: documents_lengths[dp_index: dp_index + batch_size],
-                que_l: questions_lengths[dp_index: dp_index + batch_size]
+                que_l: questions_lengths[dp_index: dp_index + batch_size],
+                f1_score_log: new_avg_f1,
+                em_score_log: new_em_score
                 }
 
             if dp_index//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
