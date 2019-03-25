@@ -24,9 +24,6 @@ prob = tf.placeholder_with_default(0.7, shape=())
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=200, type=int, help="Number of epochs to train for")
-parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
-#parser.add_argument("--num_units", default=200, type=int,
-#   help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
@@ -36,9 +33,7 @@ parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
-#parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
-#parser.add_argument("--early_stop", default=None, type=int, 
-#   help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
+parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
 
 
 ARGS = parser.parse_args()
@@ -51,7 +46,7 @@ if ARGS.test:
 with tf.variable_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = ciprian_data_prep_script.get_data("train")
     input_d_vecs_validation, input_q_vecs_validation, ground_truth_labels_validation, documents_lengths_validation, questions_lengths_validation, questions_ids_validation, all_answers_validation = ciprian_data_prep_script.get_data("test")
-    print("In train.py: get_data finished.")
+    #print("In train.py: get_data finished.")
 
     start_l = list(map(lambda x: x[0], ground_truth_labels))
     end_l = list(map(lambda x: x[1], ground_truth_labels))
@@ -239,7 +234,11 @@ if ARGS.tfdbg:
 else:
     chosen_session = tf.Session()
 with chosen_session as sess:
-    sess.run(tf.global_variables_initializer())
+    if ARGS.restore == None:
+        sess.run(tf.global_variables_initializer())
+    else:
+        restore_path = saver.restore(sess, ARGS.restore)
+        print("Restoring from checkpoint at", ARGS.restore)
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
 
@@ -294,7 +293,7 @@ with chosen_session as sess:
             if ARGS.test:
                 break
 
-        epoch_loss = epoch_loss/(int(dataset_length/batch_size))
+        epoch_loss = 10*epoch_loss/(int(dataset_length/batch_size))
         total_count = 0.1
         exact_matches = 0.1
         running_f1 = 0.1
