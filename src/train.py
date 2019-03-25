@@ -35,6 +35,7 @@ parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probabil
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
+parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 #parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
 #parser.add_argument("--early_stop", default=None, type=int, 
 #	help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
@@ -229,8 +230,11 @@ fileEM.write("Hyperparameters:" + str(ARGS))
 
 soft_min = tf.nn.softmax(end_labels)
 
-#with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
-with tf.Session() as sess:
+if ARGS.tfdbg:
+    chosen_session = tf_debug.LocalCLIDebugWrapperSession(tf.Session())
+else:
+    chosen_session = tf.Session()
+with chosen_session as sess:
     sess.run(tf.global_variables_initializer())
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
