@@ -248,6 +248,8 @@ with chosen_session as sess:
     best_em_score = 0.0
     best_avg_f1 = 0.0
     global_batch_num = 0
+    new_avg_f1 = 0
+    new_em_score = 0
     for epoch in range(ARGS.num_epochs):
 
         print("\nEpoch:", epoch)
@@ -258,8 +260,6 @@ with chosen_session as sess:
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
-        new_avg_f1 = 0
-        new_em_score = 0
         epoch_loss = 0
         for dp_index in range(0, dataset_length, batch_size):
             if dp_index + batch_size > dataset_length:
