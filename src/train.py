@@ -28,11 +28,11 @@ parser.add_argument("--restore", action="store_true", default=False, help="Wheth
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
-parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
+parser.add_argument("--hidden_size", default=100, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
-parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
+parser.add_argument("--pool_size", default=8, type=int, help="Number of units to pool over in HMN sub-network")
 #parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
 #parser.add_argument("--early_stop", default=None, type=int, 
 #	help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
@@ -56,13 +56,14 @@ with tf.name_scope("data_prep"):
     start_l_validation = list(map(lambda x: x[0], ground_truth_labels_validation))
     end_l_validation = list(map(lambda x: x[1], ground_truth_labels_validation))
 
-    d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0]), len(input_d_vecs[0][0])])
-    q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0]), len(input_q_vecs[0][0])])
+    batch_doc_len = tf.placeholder_with_default(600, shape=())
+    d = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_d_vecs[0][0])])
+    q = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_q_vecs[0][0])])
     starting_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     ending_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
-
+    batch_doc_len = tf.placeholder_with_default(600, shape=())
 
 with tf.name_scope("encoder"):
     encoded = encoder.encoder(
@@ -78,8 +79,8 @@ with tf.name_scope("encoder"):
     #end_labels = tf.one_hot(a[:,1], 600)
 
     # Create single nodes for labels, feed_dict version
-    start_labels = tf.one_hot(starting_labels, 600)
-    end_labels = tf.one_hot(ending_labels, 600)
+    start_labels = tf.one_hot(starting_labels, batch_doc_len)
+    end_labels = tf.one_hot(ending_labels, batch_doc_len)
 
 with tf.name_scope("decoder"):
     # Static tensor to be re-used in main loop iterations
@@ -165,7 +166,7 @@ with tf.name_scope("paramters"):
     tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
     tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
     tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
-    tf.summary.scalar('keep_prob', tf.constant(ARGS.keep_prob))
+    tf.summary.scalar('keep_prob', ARGS.keep_prob)
     tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
 
 
@@ -213,17 +214,28 @@ with tf.Session() as sess:
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
+
         for dp_index in range(0, dataset_length, batch_size):
+            doc = list.copy(list(input_d_vecs[dp_index:dp_index + batch_size]))
+            que = list.copy(list(input_q_vecs[dp_index:dp_index + batch_size]))
+            doc_len = documents_lengths[dp_index: dp_index + batch_size]
+            que_len = questions_lengths[dp_index: dp_index + batch_size]
+            max_doc_len = max(doc_len)
+            max_que_len = max(que_len)
+            doc = [elem[:max_doc_len] for elem in doc]
+            que = [elem[:max_que_len] for elem in doc]
+
             if dp_index + batch_size > dataset_length:
                 break
-            #batch_time = time.time()
+            batch_time = time.time()
             feed_dict = {
-                d: input_d_vecs[dp_index:dp_index + batch_size],
-                q: input_q_vecs[dp_index: dp_index + batch_size],
+                batch_doc_len: max_doc_len,
+                d: doc,
+                q: que,
                 starting_labels: start_l[dp_index: dp_index + batch_size],
                 ending_labels: end_l[dp_index: dp_index + batch_size],
-                doc_l: documents_lengths[dp_index: dp_index + batch_size],
-                que_l: questions_lengths[dp_index: dp_index + batch_size]
+                doc_l: doc_len,
+                que_l: que_len
                 }
 
             if dp_index//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
@@ -235,7 +247,7 @@ with tf.Session() as sess:
 
             global_batch_num += 1
 
-            #print(time.time()-batch_time)
+            print(time.time()-batch_time)
             if ARGS.test:
                 break
 
