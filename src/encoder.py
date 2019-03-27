@@ -86,7 +86,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     #print('Q', Q.shape)
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))
 
-    print('L', L.shape)
+    #print('L', L.shape)
     A_Q = tf.nn.softmax(L, axis=1, name="softmaxed_L")
     A_D = tf.nn.softmax(tf.transpose(L, perm = [0,2,1]), axis=1, name="softmaxed_L_transpose")
     C_Q = tf.matmul(tf.transpose(D, perm = [0,2,1]), A_Q)
