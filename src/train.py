@@ -26,7 +26,7 @@ parser.add_argument("--restore", action="store_true", default=False, help="Wheth
 #parser.add_argument("--num_units", default=200, type=int,
 #   help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=128, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=100, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probability for question and document encodings.")
@@ -39,7 +39,6 @@ parser.add_argument("--pool_size", default=8, type=int, help="Number of units to
 
 
 ARGS = parser.parse_args()
-keep_probability = ARGS.keep_prob
 
 if ARGS.test:
     print("Running in test mode")
@@ -247,7 +246,10 @@ with tf.Session() as sess:
                 sess.run([train_step], feed_dict=feed_dict)
 
             global_batch_num += 1
-
+            del(doc)
+            del(que)
+            del(doc_len)
+            del(que_len)
             #print(time.time()-batch_time)
             if ARGS.test:
                 break
