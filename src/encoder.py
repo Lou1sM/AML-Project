@@ -49,9 +49,8 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
     # Use batch_size from hyperparameters, dropout, num_cells
     # Data needs to come padded, also need the length 
     hidden_size = hyperparameters.hidden_size
-    with tf.variable_scope('lstm') as scope:
+    with tf.variable_scope('lstm', reuse = tf.AUTO_REUSE) as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
-        scope.reuse_variables()
         que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters)
     with tf.variable_scope('tanhlayer') as scope:
         linear_model = tf.layers.Dense(units = hidden_size)
@@ -105,7 +104,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
 def encoder(document, question, documents_lengths, questions_lengths, hyperparameters):
     with tf.variable_scope("doc_que_encoder"):
         D, Q = doc_que_encoder(document, question, documents_lengths, questions_lengths, hyperparameters)
-    with tf.variable_scope("coattention_encoder", reuse=tf.AUTO_REUSE):
+    with tf.variable_scope("coattention_encoder"):
         return coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
 
 
