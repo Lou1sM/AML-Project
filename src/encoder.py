@@ -31,8 +31,8 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
-    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
+    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size)
+    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size)
     embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_fw_state, final_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                                                         cells_fw = [fw_cell], 
@@ -86,7 +86,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     #print('Q', Q.shape)
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))
 
-    #print('L', L.shape)
+    print('L', L.shape)
     A_Q = tf.nn.softmax(L, axis=1, name="softmaxed_L")
     A_D = tf.nn.softmax(tf.transpose(L, perm = [0,2,1]), axis=1, name="softmaxed_L_transpose")
     C_Q = tf.matmul(tf.transpose(D, perm = [0,2,1]), A_Q)
@@ -103,5 +103,10 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
  
  
 def encoder(document, question, documents_lengths, questions_lengths, hyperparameters):
-    D, Q = doc_que_encoder(document, question, documents_lengths, questions_lengths, hyperparameters)
-    return coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
+    with tf.variable_scope("doc_que_encoder"):
+        D, Q = doc_que_encoder(document, question, documents_lengths, questions_lengths, hyperparameters)
+    with tf.variable_scope("coattention_encoder", reuse=tf.AUTO_REUSE):
+        return coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
+
+
+
