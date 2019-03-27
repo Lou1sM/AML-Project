@@ -24,9 +24,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=200, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 #parser.add_argument("--num_units", default=200, type=int,
-#	help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+#   help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=128, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=100, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probability for question and document encodings.")
@@ -35,7 +35,7 @@ parser.add_argument("--short_test", "-s", default=False, action="store_true", he
 parser.add_argument("--pool_size", default=8, type=int, help="Number of units to pool over in HMN sub-network")
 #parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
 #parser.add_argument("--early_stop", default=None, type=int, 
-#	help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
+#   help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
 
 
 ARGS = parser.parse_args()
@@ -56,7 +56,6 @@ with tf.name_scope("data_prep"):
     start_l_validation = list(map(lambda x: x[0], ground_truth_labels_validation))
     end_l_validation = list(map(lambda x: x[1], ground_truth_labels_validation))
 
-    batch_doc_len = tf.placeholder_with_default(600, shape=())
     d = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_d_vecs[0][0])])
     q = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_q_vecs[0][0])])
     starting_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
@@ -216,6 +215,8 @@ with tf.Session() as sess:
 
 
         for dp_index in range(0, dataset_length, batch_size):
+            #batch_time = time.time()
+
             doc = list.copy(list(input_d_vecs[dp_index:dp_index + batch_size]))
             que = list.copy(list(input_q_vecs[dp_index:dp_index + batch_size]))
             doc_len = documents_lengths[dp_index: dp_index + batch_size]
@@ -223,11 +224,11 @@ with tf.Session() as sess:
             max_doc_len = max(doc_len)
             max_que_len = max(que_len)
             doc = [elem[:max_doc_len] for elem in doc]
-            que = [elem[:max_que_len] for elem in doc]
+            que = [elem[:max_que_len] for elem in que]
 
             if dp_index + batch_size > dataset_length:
                 break
-            batch_time = time.time()
+
             feed_dict = {
                 batch_doc_len: max_doc_len,
                 d: doc,
@@ -247,7 +248,7 @@ with tf.Session() as sess:
 
             global_batch_num += 1
 
-            print(time.time()-batch_time)
+            #print(time.time()-batch_time)
             if ARGS.test:
                 break
 
@@ -264,7 +265,7 @@ with tf.Session() as sess:
                 break
 
             feed_dict_validation = {
-            	prob: 1,
+                prob: 1,
                 d: input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size],
                 q: input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
                 starting_labels: start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
@@ -274,8 +275,6 @@ with tf.Session() as sess:
                 }
 
             loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, s, e], feed_dict = feed_dict_validation)
-            start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
-            end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
 
             for i in range(ARGS.batch_size):
                 total_count += 1.0
@@ -303,8 +302,7 @@ with tf.Session() as sess:
 
             if ARGS.test:
                 break
-            if dp_index_validation == 100:
-                break
+
         new_em_score = exact_matches / total_count
         new_avg_f1 = running_f1 / total_count
         if new_avg_f1 > best_avg_f1:
@@ -318,7 +316,7 @@ with tf.Session() as sess:
             fileEM.write("Epoch number:" + str(epoch))
             fileEM.write("\n")
             fileEM.write("EM score improved from " + str(best_em_score) + " to " + str(new_em_score) + ". Model saved in path: " + str(save_path))
-            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(new_em_score) + ".")
+            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(new_avg_f1) + ".")
             fileEM.write("\n")
             fileEM.flush()
             best_em_score = new_em_score 
