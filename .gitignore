@@ -8,3 +8,4 @@ data/*
 summaries/*
 *.tfrecord
 checkpoints/*
+src/test.py

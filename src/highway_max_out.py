@@ -7,7 +7,7 @@ from utils import variable_summaries
 def HMN(current_words, lstm_hidden_state, prev_start_point_guess, prev_end_point_guess, name, pool_size, h_size):
     current_words = tf.transpose(current_words, perm=[1,0,2])
     #print('current_words shape:', current_words.get_shape())
-    with tf.name_scope(name):
+    with tf.variable_scope(name):
 
         r = tf.concat([lstm_hidden_state, prev_start_point_guess, prev_end_point_guess], axis=1)
 

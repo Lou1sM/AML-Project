@@ -31,8 +31,8 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size)
-    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size)
+    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
+    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
     embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_fw_state, final_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                                                         cells_fw = [fw_cell], 

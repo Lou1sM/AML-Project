@@ -48,7 +48,7 @@ if ARGS.test:
     print("Running in test mode")
 
 
-with tf.name_scope("data_prep"):
+with tf.variable_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = ciprian_data_prep_script.get_data("train")
     input_d_vecs_validation, input_q_vecs_validation, ground_truth_labels_validation, documents_lengths_validation, questions_lengths_validation, questions_ids_validation, all_answers_validation = ciprian_data_prep_script.get_data("test")
     print("In train.py: get_data finished.")
@@ -66,13 +66,13 @@ with tf.name_scope("data_prep"):
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
 
-with tf.name_scope("performance_metrics"):
+with tf.variable_scope("performance_metrics"):
     em_score_log = tf.placeholder(tf.float32, ())
     f1_score_log = tf.placeholder(tf.float32, ())
     tf.summary.scalar('em_score', em_score_log)
     tf.summary.scalar('f1_score', f1_score_log)
 
-with tf.name_scope("parameters"):
+with tf.variable_scope("parameters"):
     tf.summary.scalar('batch_size', tf.constant(ARGS.batch_size))
     tf.summary.scalar('hidden_size', tf.constant(ARGS.hidden_size))
     tf.summary.scalar('pool_size', tf.constant(ARGS.pool_size))
@@ -80,7 +80,7 @@ with tf.name_scope("parameters"):
     tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
 
 
-with tf.name_scope("encoder"):
+with tf.variable_scope("encoder"):
     encoded = encoder.encoder(
         document=d,
         question=q,
@@ -97,7 +97,7 @@ with tf.name_scope("encoder"):
     start_labels = tf.one_hot(starting_labels, 600)
     end_labels = tf.one_hot(ending_labels, 600)
 
-with tf.name_scope("decoder"):
+with tf.variable_scope("decoder"):
     # Calculate padding mask
     zeros_encoded = tf.zeros([ARGS.batch_size, 600, 2 * ARGS.hidden_size], tf.float32)
     zeros_set = tf.equal(encoded, zeros_encoded)
@@ -129,7 +129,7 @@ with tf.name_scope("decoder"):
     u_s = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size], tf.float32)  # Dummy guess start point
     u_e = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size], tf.float32)  # Dummy guess end point
 
-    with tf.name_scope("decoding_loop"):
+    with tf.variable_scope("decoding_loop"):
         for i in range(4):
             # LSTM input is concatenation of previous guesses
             usue = tf.concat([u_s, u_e], axis=1)
@@ -183,7 +183,7 @@ with tf.name_scope("decoder"):
                 logits=betas
             )
 
-            with tf.name_scope("iteration_" + str(i) + "_loss"):
+            with tf.variable_scope("iteration_" + str(i) + "_loss"):
                 s_mask = tf.equal(s, s_prev)
                 e_mask = tf.equal(e, e_prev)
                 output_same = tf.logical_and(s_mask, e_mask)
