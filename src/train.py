@@ -99,20 +99,24 @@ with tf.name_scope("encoder"):
 
 with tf.name_scope("decoder"):
     # Calculate padding mask
-    zeros = tf.zeros([ARGS.batch_size, 600, 2*ARGS.hidden_size])
-    zeros_set = tf.equal(encoded, zeros)
+    zeros_encoded = tf.zeros([ARGS.batch_size, 600, 2 * ARGS.hidden_size], tf.float32)
+    zeros_set = tf.equal(encoded, zeros_encoded)
     padding_mask_bool = tf.reduce_all(zeros_set, 2)
     words_mask_bool = tf.logical_not(padding_mask_bool)
     padding_mask = tf.cast(padding_mask_bool, tf.float32)
     words_mask = tf.cast(words_mask_bool, tf.float32)
 
-    # A tensor filled with the minimum float values
-    min_float = tf.fill([ARGS.batch_size, 600], tf.cast(tf.float32.min, tf.float32))
+    # Assert that the amount of non-zero words is equal to given document lengths
+    num_nonzero_words = tf.reduce_sum(words_mask, 1)
+    with tf.control_dependencies([tf.assert_equal(tf.cast(num_nonzero_words, tf.int32), tf.cast(doc_l, tf.int32))]):
+        # A tensor filled with the minimum float values
+        min_float = tf.constant(value=-1e9, dtype=tf.float32, shape=[ARGS.batch_size, 600])
+        min_float_at_padding = tf.multiply(min_float, padding_mask)
 
     # Persistent loss mask that remembers whether convergence has already taken place
-    loss_mask = tf.fill([ARGS.batch_size], True)
-    s_prev = tf.fill([ARGS.batch_size], -1)
-    e_prev = tf.fill([ARGS.batch_size], -1)
+    loss_mask = tf.constant(True, shape=[ARGS.batch_size])
+    s_prev = tf.constant(-1, dtype=tf.int32, shape=[ARGS.batch_size])
+    e_prev = tf.constant(-1, dtype=tf.int32, shape=[ARGS.batch_size])
 
     # Static tensor to be re-used in main loop iterations
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
@@ -122,8 +126,8 @@ with tf.name_scope("decoder"):
     h = decoding_lstm.zero_state(ARGS.batch_size, dtype=tf.float32)
 
     # First guess for start- and end-points
-    u_s = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size])  # Dummy guess start point
-    u_e = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size])  # Dummy guess end point
+    u_s = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size], tf.float32)  # Dummy guess start point
+    u_e = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size], tf.float32)  # Dummy guess end point
 
     with tf.name_scope("decoding_loop"):
         for i in range(4):
@@ -157,13 +161,13 @@ with tf.name_scope("decoder"):
                 )
 
             alphas = tf.multiply(alphas, words_mask)
-            alphas = tf.add(alphas, tf.multiply(min_float, padding_mask))
+            alphas = tf.add(alphas, min_float_at_padding)
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_encoding_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_encoding_indices)
 
             betas = tf.multiply(betas, words_mask)
-            betas = tf.add(betas, tf.multiply(min_float, padding_mask))
+            betas = tf.add(betas, min_float_at_padding)
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_encoding_indices = tf.transpose(tf.stack([batch_indices, e]))
             u_e = tf.gather_nd(encoded, e_encoding_indices)
