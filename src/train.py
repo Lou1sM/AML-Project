@@ -9,7 +9,6 @@ import datetime
 import os
 import utils
 import random
-import numpy as np
 from tensorflow.python.client import timeline
 from tensorflow.python import debug as tf_debug
 
@@ -27,7 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=200, type=int, help="Number of epochs to train for")
 parser.add_argument("--restore", action="store_true", default=False, help="Whether to restore weights from previous run")
 #parser.add_argument("--num_units", default=200, type=int,
-#	help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
+#   help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
@@ -39,10 +38,11 @@ parser.add_argument("--pool_size", default=16, type=int, help="Number of units t
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 #parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
 #parser.add_argument("--early_stop", default=None, type=int, 
-#	help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
+#   help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
 
 
 ARGS = parser.parse_args()
+keep_probability = ARGS.keep_prob
 
 if ARGS.test:
     print("Running in test mode")
@@ -59,14 +59,12 @@ with tf.variable_scope("data_prep"):
     start_l_validation = list(map(lambda x: x[0], ground_truth_labels_validation))
     end_l_validation = list(map(lambda x: x[1], ground_truth_labels_validation))
 
-    d = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_d_vecs[0][0])])
-    q = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_q_vecs[0][0])])
+    d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0]), len(input_d_vecs[0][0])])
+    q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0]), len(input_q_vecs[0][0])])
     starting_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     ending_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
-    batch_doc_len = tf.placeholder_with_default(600, shape=())
-
 
 with tf.variable_scope("performance_metrics"):
     em_score_log = tf.placeholder(tf.float32, ())
@@ -96,12 +94,12 @@ with tf.variable_scope("encoder"):
     #end_labels = tf.one_hot(a[:,1], 600)
 
     # Create single nodes for labels, feed_dict version
-    start_labels = tf.one_hot(starting_labels, batch_doc_len)
-    end_labels = tf.one_hot(ending_labels, batch_doc_len)
+    start_labels = tf.one_hot(starting_labels, 600)
+    end_labels = tf.one_hot(ending_labels, 600)
 
 with tf.variable_scope("decoder"):
     # Calculate padding mask
-    zeros_encoded = tf.placeholder(tf.float32, [ARGS.batch_size, None, 2 * ARGS.hidden_size])
+    zeros_encoded = tf.zeros([ARGS.batch_size, 600, 2 * ARGS.hidden_size], tf.float32)
     zeros_set = tf.equal(encoded, zeros_encoded)
     padding_mask_bool = tf.reduce_all(zeros_set, 2)
     words_mask_bool = tf.logical_not(padding_mask_bool)
@@ -112,7 +110,7 @@ with tf.variable_scope("decoder"):
     num_nonzero_words = tf.reduce_sum(words_mask, 1)
     with tf.control_dependencies([tf.assert_equal(tf.cast(num_nonzero_words, tf.int32), tf.cast(doc_l, tf.int32))]):
         # A tensor filled with the minimum float values
-        min_float = tf.placeholder(tf.float32, [ARGS.batch_size, None])
+        min_float = tf.constant(value=-1e9, dtype=tf.float32, shape=[ARGS.batch_size, 600])
         min_float_at_padding = tf.multiply(min_float, padding_mask)
 
     # Persistent loss mask that remembers whether convergence has already taken place
@@ -270,21 +268,8 @@ with chosen_session as sess:
         for dp_index in range(0, dataset_length, batch_size):
             if dp_index + batch_size > dataset_length:
                 break
-            batch_time = time.time()
-
-            doc = list.copy(list(input_d_vecs[dp_index:dp_index + batch_size]))
-            que = list.copy(list(input_q_vecs[dp_index:dp_index + batch_size]))
-            doc_len = documents_lengths[dp_index: dp_index + batch_size]
-            que_len = questions_lengths[dp_index: dp_index + batch_size]
-            max_doc_len = max(doc_len)
-            max_que_len = max(que_len)
-            doc = [elem[:max_doc_len] for elem in doc]
-            que = [elem[:max_que_len] for elem in que]
-
+            #batch_time = time.time()
             feed_dict = {
-                batch_doc_len: max_doc_len,
-                zeros_encoded:  np.zeros([batch_size, max_doc_len, 2 * ARGS.hidden_size]),
-                min_float: np.full([batch_size, max_doc_len], -1e9),
                 d: input_d_vecs[dp_index:dp_index + batch_size],
                 q: input_q_vecs[dp_index: dp_index + batch_size],
                 starting_labels: start_l[dp_index: dp_index + batch_size],
@@ -305,12 +290,7 @@ with chosen_session as sess:
 
             global_batch_num += 1
 
-            del(doc)
-            del(que)
-            del(doc_len)
-            del(que_len)
-
-            print(time.time()-batch_time)
+            #print(time.time()-batch_time)
             if ARGS.test:
                 break
 
@@ -328,7 +308,7 @@ with chosen_session as sess:
                 break
 
             feed_dict_validation = {
-            	prob: 1,
+                prob: 1,
                 d: input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size],
                 q: input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
                 starting_labels: start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
