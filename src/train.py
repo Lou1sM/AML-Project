@@ -299,6 +299,8 @@ with chosen_session as sess:
         exact_matches = 0.1
         running_f1 = 0.1
 
+        total_epoch_val_loss = 0.0
+
         for dp_index_validation in range(0, dataset_length_validation, ARGS.batch_size):
             if(dp_index_validation % 500 == 0):
                 print("Validation Batch: ", dp_index_validation, "\n")
@@ -321,6 +323,7 @@ with chosen_session as sess:
             start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
             end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
 
+            total_epoch_val_loss += loss_val_validation
             for i in range(ARGS.batch_size):
                 total_count += 1.0
                 got_exact_match = False
@@ -347,8 +350,7 @@ with chosen_session as sess:
 
             if ARGS.test:
                 break
-            if dp_index_validation == 100:
-                break
+        total_epoch_val_loss = total_epoch_val_loss/(int(dataset_length_validation/batch_size))
         new_em_score = exact_matches / total_count
         new_avg_f1 = running_f1 / total_count
         if new_avg_f1 > best_avg_f1:
@@ -359,12 +361,14 @@ with chosen_session as sess:
             #save_path = saver.save(sess, "checkpoints/model.ckpt")
             save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
             print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
+            print("Epoch validation loss: %f" % total_epoch_val_loss)
             fileEM.write("Epoch number:" + str(epoch))
             fileEM.write("\n")
             fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
             fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
             #fileEM.write("\n")
             fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+            fileEM.write("Epoch validation loss: %f" % total_epoch_val_loss)
             fileEM.write("\n\n")
             fileEM.flush()
             best_em_score = new_em_score 
@@ -376,6 +380,7 @@ with chosen_session as sess:
             fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
             #fileEM.write("\n")
             fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+            fileEM.write("Epoch validation loss: %f" % total_epoch_val_loss)
             fileEM.write("\n\n")
             fileEM.flush()
  
