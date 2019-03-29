@@ -31,8 +31,8 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
-    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
+    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
+    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
     embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_fw_state, final_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                                                         cells_fw = [fw_cell], 
@@ -49,9 +49,8 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
     # Use batch_size from hyperparameters, dropout, num_cells
     # Data needs to come padded, also need the length 
     hidden_size = hyperparameters.hidden_size
-    with tf.variable_scope('lstm') as scope:
+    with tf.variable_scope('lstm', reuse = tf.AUTO_REUSE) as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
-        scope.reuse_variables()
         que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters)
     with tf.variable_scope('tanhlayer') as scope:
         linear_model = tf.layers.Dense(units = hidden_size)
@@ -82,8 +81,11 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
         tiled_sentinel_q = tf.tile(expanded_sentinel_q, [hyperparameters.batch_size, 1, 1])
         Q = tf.concat([Q, tiled_sentinel_q], axis=1)
 
+    #print('D', D.shape)
+    #print('Q', Q.shape)
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))
 
+    #print('L', L.shape)
     A_Q = tf.nn.softmax(L, axis=1, name="softmaxed_L")
     A_D = tf.nn.softmax(tf.transpose(L, perm = [0,2,1]), axis=1, name="softmaxed_L_transpose")
     C_Q = tf.matmul(tf.transpose(D, perm = [0,2,1]), A_Q)
@@ -100,5 +102,10 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
  
  
 def encoder(document, question, documents_lengths, questions_lengths, hyperparameters):
-    D, Q = doc_que_encoder(document, question, documents_lengths, questions_lengths, hyperparameters)
-    return coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
+    with tf.variable_scope("doc_que_encoder"):
+        D, Q = doc_que_encoder(document, question, documents_lengths, questions_lengths, hyperparameters)
+    with tf.variable_scope("coattention_encoder"):
+        return coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
+
+
+

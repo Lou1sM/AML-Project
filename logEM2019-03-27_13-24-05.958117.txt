@@ -1,0 +1,6 @@
+Epoch number:0
+EM score improved from 0.0 to 0.2550259940720258. Model saved in path: checkpoints/model0.ckpt
+New avg F1:0.33998560815090684 Best avg f1: 0.33998560815090684.
+Epoch number:1
+EM score improved from 0.2550259940720258 to 0.4268046704103181. Model saved in path: checkpoints/model1.ckpt
+New avg F1:0.5311631567732168 Best avg f1: 0.5311631567732168.

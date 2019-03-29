@@ -28,11 +28,11 @@ parser.add_argument("--restore", action="store_true", default=False, help="Wheth
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
 parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
-parser.add_argument("--hidden_size", default=100, type=int, help="Size of the hidden state")
+parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probability for question and document encodings.")
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
-parser.add_argument("--pool_size", default=8, type=int, help="Number of units to pool over in HMN sub-network")
+parser.add_argument("--pool_size", default=4, type=int, help="Number of units to pool over in HMN sub-network")
 #parser.add_argument("--validate", default=False, action="store_true", help="Whether to apply validation.")
 #parser.add_argument("--early_stop", default=None, type=int, 
 #   help="Number of epochs without improvement before applying early-stopping. Defaults to num_epochs, which amounts to no early-stopping.")
@@ -189,7 +189,8 @@ fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
 fileEM = open(fileEM_name, "w")
 
 with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
+    #sess.run(tf.global_variables_initializer())
+    saver.restore(sess, "checkpoints/model8.ckpt")
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
 

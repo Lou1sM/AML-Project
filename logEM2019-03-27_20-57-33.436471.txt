@@ -1,0 +1,27 @@
+Epoch number:0
+EM score improved from 0.0 to 0.467239893561614. Model saved in path: checkpoints/model0.ckpt
+New avg F1:0.5747575392640503 Best avg f1: 0.5747575392640503.
+Epoch number:1
+EM score improved from 0.467239893561614 to 0.5173341161542031. Model saved in path: checkpoints/model1.ckpt
+New avg F1:0.6319898324990723 Best avg f1: 0.6319898324990723.
+Epoch number:2
+EM score improved from 0.5173341161542031 to 0.5413869186844822. Model saved in path: checkpoints/model2.ckpt
+New avg F1:0.6476034785861257 Best avg f1: 0.6476034785861257.
+Epoch number:3
+EM score improved from 0.5413869186844822 to 0.5335271446293123. Model saved in path: checkpoints/model3.ckpt
+New avg F1:0.6502045139812705 Best avg f1: 0.6502045139812705.
+Epoch number:4
+EM score improved from 0.5335271446293123 to 0.5536027120955294. Model saved in path: checkpoints/model4.ckpt
+New avg F1:0.6701592621827381 Best avg f1: 0.6701592621827381.
+Epoch number:5
+EM score improved from 0.5536027120955294 to 0.5674283387467922. Model saved in path: checkpoints/model5.ckpt
+New avg F1:0.6722531922875654 Best avg f1: 0.6722531922875654.
+Epoch number:6
+EM score improved from 0.5674283387467922 to 0.5643980644122688. Model saved in path: checkpoints/model6.ckpt
+New avg F1:0.6820100310527761 Best avg f1: 0.6820100310527761.
+Epoch number:7
+EM score improved from 0.5643980644122688 to 0.5653450251418074. Model saved in path: checkpoints/model7.ckpt
+New avg F1:0.6756463814544654 Best avg f1: 0.6756463814544654.
+Epoch number:8
+EM score improved from 0.5653450251418074 to 0.5692275641329154. Model saved in path: checkpoints/model8.ckpt
+New avg F1:0.6816926814547447 Best avg f1: 0.6816926814547447.
