@@ -26,7 +26,7 @@ parser.add_argument("--restore", action="store_true", default=False, help="Wheth
 #parser.add_argument("--num_units", default=200, type=int,
 #   help="Number of recurrent units for the first lstm, which is deteriministic and is only used in both training and testing")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
-parser.add_argument("--batch_size", default=64, type=int, help="Size of each training batch")
+parser.add_argument("--batch_size", default=32, type=int, help="Size of each training batch")
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probability for question and document encodings.")
@@ -189,8 +189,8 @@ fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
 fileEM = open(fileEM_name, "w")
 
 with tf.Session() as sess:
-    #sess.run(tf.global_variables_initializer())
-    saver.restore(sess, "checkpoints/model8.ckpt")
+    sess.run(tf.global_variables_initializer())
+    #saver.restore(sess, "checkpoints/model8.ckpt")
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
 
@@ -203,6 +203,8 @@ with tf.Session() as sess:
     best_em_score = 0.0
     best_avg_f1 = 0.0
     global_batch_num = 0
+    new_avg_f1 = 0
+    new_em_score = 0
     for epoch in range(ARGS.num_epochs):
 
         print("\nEpoch:", epoch)
@@ -213,7 +215,7 @@ with tf.Session() as sess:
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
-
+        epoch_loss = 0
         for dp_index in range(0, dataset_length, batch_size):
             #batch_time = time.time()
 
@@ -243,6 +245,7 @@ with tf.Session() as sess:
                 _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
                 writer.add_summary(summary_val, global_batch_num)
                 print("\tBatch: {}\tloss: {}".format(dp_index // batch_size, loss_val))
+                epoch_loss += loss_val
             else:
                 sess.run([train_step], feed_dict=feed_dict)
 
@@ -254,10 +257,14 @@ with tf.Session() as sess:
             #print(time.time()-batch_time)
             if ARGS.test:
                 break
-
+        import pdb
+        pdb.set_trace()
+        epoch_loss = epoch_loss/(int(dataset_length/(10*batch_size))+1)
         total_count = 0.1
         exact_matches = 0.1
         running_f1 = 0.1
+
+        total_epoch_val_loss = 0.0
 
         for dp_index_validation in range(0, dataset_length_validation, ARGS.batch_size):
             if(dp_index_validation % 500 == 0):
@@ -279,6 +286,7 @@ with tf.Session() as sess:
 
             loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, s, e], feed_dict = feed_dict_validation)
 
+            total_epoch_val_loss += loss_val_validation
             for i in range(ARGS.batch_size):
                 total_count += 1.0
                 got_exact_match = False
@@ -305,26 +313,39 @@ with tf.Session() as sess:
 
             if ARGS.test:
                 break
-
+        total_epoch_val_loss = total_epoch_val_loss/(int(dataset_length_validation/batch_size))
         new_em_score = exact_matches / total_count
         new_avg_f1 = running_f1 / total_count
         if new_avg_f1 > best_avg_f1:
             best_avg_f1 = new_avg_f1
 
-        if new_em_score > 0:
-            #save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
+        print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
+        if new_em_score > best_em_score:
+            #save_path = saver.save(sess, "checkpoints/model.ckpt")
             save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
             print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
-            print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
+            print("Epoch validation loss: %f" % total_epoch_val_loss)
             fileEM.write("Epoch number:" + str(epoch))
             fileEM.write("\n")
-            fileEM.write("EM score improved from " + str(best_em_score) + " to " + str(new_em_score) + ". Model saved in path: " + str(save_path))
-            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(new_avg_f1) + ".")
-            fileEM.write("\n")
+            fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
+            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
+            #fileEM.write("\n")
+            fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+            fileEM.write("  Epoch validation loss: %f" % total_epoch_val_loss)
+            fileEM.write("\n\n")
             fileEM.flush()
             best_em_score = new_em_score 
         else:
             print("No improvement in EM score, not saving")
+            fileEM.write("Epoch number:" + str(epoch))
+            fileEM.write("\n")
+            fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". No improvement, model not saved.")
+            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
+            #fileEM.write("\n")
+            fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+            fileEM.write("  Epoch validation loss: %f" % total_epoch_val_loss)
+            fileEM.write("\n\n")
+            fileEM.flush()
 
 train_end_time = time.time()
 
