@@ -34,6 +34,7 @@ parser.add_argument("--short_test", "-s", default=False, action="store_true", he
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
+parser.add_argument("--mask", default=False, action="store_true", help="Whether to apply mask.")
 
 
 ARGS = parser.parse_args()
@@ -94,24 +95,25 @@ with tf.variable_scope("encoder"):
 
 with tf.variable_scope("decoder"):
     # Calculate padding mask
-    zeros_encoded = tf.zeros([ARGS.batch_size, 600, 2 * ARGS.hidden_size], tf.float32)
-    zeros_set = tf.equal(encoded, zeros_encoded)
-    padding_mask_bool = tf.reduce_all(zeros_set, 2)
-    words_mask_bool = tf.logical_not(padding_mask_bool)
-    padding_mask = tf.cast(padding_mask_bool, tf.float32)
-    words_mask = tf.cast(words_mask_bool, tf.float32)
+    if ARGS.mask:
+        zeros_encoded = tf.zeros([ARGS.batch_size, 600, 2 * ARGS.hidden_size], tf.float32)
+        zeros_set = tf.equal(encoded, zeros_encoded)
+        padding_mask_bool = tf.reduce_all(zeros_set, 2)
+        words_mask_bool = tf.logical_not(padding_mask_bool)
+        padding_mask = tf.cast(padding_mask_bool, tf.float32)
+        words_mask = tf.cast(words_mask_bool, tf.float32)
 
-    # Assert that the amount of non-zero words is equal to given document lengths
-    num_nonzero_words = tf.reduce_sum(words_mask, 1)
-    with tf.control_dependencies([tf.assert_equal(tf.cast(num_nonzero_words, tf.int32), tf.cast(doc_l, tf.int32))]):
-        # A tensor filled with the minimum float values
-        min_float = tf.constant(value=-1e9, dtype=tf.float32, shape=[ARGS.batch_size, 600])
-        min_float_at_padding = tf.multiply(min_float, padding_mask)
+        # Assert that the amount of non-zero words is equal to given document lengths
+        num_nonzero_words = tf.reduce_sum(words_mask, 1)
+        with tf.control_dependencies([tf.assert_equal(tf.cast(num_nonzero_words, tf.int32), tf.cast(doc_l, tf.int32))]):
+            # A tensor filled with the minimum float values
+            min_float = tf.constant(value=-1e9, dtype=tf.float32, shape=[ARGS.batch_size, 600])
+            min_float_at_padding = tf.multiply(min_float, padding_mask)
 
-    # Persistent loss mask that remembers whether convergence has already taken place
-    loss_mask = tf.constant(True, shape=[ARGS.batch_size])
-    s_prev = tf.constant(-1, dtype=tf.int32, shape=[ARGS.batch_size])
-    e_prev = tf.constant(-1, dtype=tf.int32, shape=[ARGS.batch_size])
+        # Persistent loss mask that remembers whether convergence has already taken place
+        loss_mask = tf.constant(True, shape=[ARGS.batch_size])
+        s_prev = tf.constant(-1, dtype=tf.int32, shape=[ARGS.batch_size])
+        e_prev = tf.constant(-1, dtype=tf.int32, shape=[ARGS.batch_size])
 
     # Static tensor to be re-used in main loop iterations
     batch_indices = tf.range(start=0, limit=ARGS.batch_size, dtype=tf.int32)
@@ -155,14 +157,16 @@ with tf.variable_scope("decoder"):
                     name="HMN_end"
                 )
 
-            alphas = tf.multiply(alphas, words_mask)
-            alphas = tf.add(alphas, min_float_at_padding)
+            if ARGS.mask:
+                alphas = tf.multiply(alphas, words_mask)
+                alphas = tf.add(alphas, min_float_at_padding)
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_encoding_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_encoding_indices)
 
-            betas = tf.multiply(betas, words_mask)
-            betas = tf.add(betas, min_float_at_padding)
+            if ARGS.mask:
+                betas = tf.multiply(betas, words_mask)
+                betas = tf.add(betas, min_float_at_padding)
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_encoding_indices = tf.transpose(tf.stack([batch_indices, e]))
             u_e = tf.gather_nd(encoded, e_encoding_indices)
@@ -178,25 +182,31 @@ with tf.variable_scope("decoder"):
                 logits=betas
             )
 
-            with tf.variable_scope("iteration_" + str(i) + "_loss"):
-                s_mask = tf.equal(s, s_prev)
-                e_mask = tf.equal(e, e_prev)
-                output_same = tf.logical_and(s_mask, e_mask)
-                s_prev = s
-                e_prev = e
-                loss_mask = tf.logical_and(loss_mask, tf.logical_not(output_same))
-                iteration_loss = s_loss + e_loss
-                masked_iteration_loss = tf.multiply(iteration_loss, tf.cast(loss_mask, tf.float32))
-                tf.summary.scalar('loss', tf.reduce_mean(iteration_loss))
-                tf.summary.scalar('masked_it_loss_summary', tf.reduce_mean(masked_iteration_loss))
+            iteration_loss = s_loss + e_loss
+            if ARGS.mask:
+                with tf.variable_scope("iteration_" + str(i) + "_loss"):
+                    s_mask = tf.equal(s, s_prev)
+                    e_mask = tf.equal(e, e_prev)
+                    output_same = tf.logical_and(s_mask, e_mask)
+                    s_prev = s
+                    e_prev = e
+                    loss_mask = tf.logical_and(loss_mask, tf.logical_not(output_same))
+                    masked_iteration_loss = tf.multiply(iteration_loss, tf.cast(loss_mask, tf.float32))
+                    tf.summary.scalar('loss', tf.reduce_mean(iteration_loss))
+                    tf.summary.scalar('masked_it_loss_summary', tf.reduce_mean(masked_iteration_loss))
 
-            #loss = iteration_loss if i == 0 else loss + iteration_loss
-            with tf.control_dependencies([tf.assert_greater_equal(iteration_loss, masked_iteration_loss)]):
-                loss = masked_iteration_loss if i == 0 else loss + masked_iteration_loss
+                #loss = iteration_loss if i == 0 else loss + iteration_loss
+                with tf.control_dependencies([tf.assert_greater_equal(iteration_loss, masked_iteration_loss)]):
+                    loss = masked_iteration_loss if i == 0 else loss + masked_iteration_loss
 
-            final_s = s if i == 0 else final_s + tf.multiply(tf.cast(loss_mask, tf.int32), s - final_s)
-            final_e = e if i == 0 else final_e + tf.multiply(tf.cast(loss_mask, tf.int32), e - final_e)
+                final_s = s if i == 0 else final_s + tf.multiply(tf.cast(loss_mask, tf.int32), s - final_s)
+                final_e = e if i == 0 else final_e + tf.multiply(tf.cast(loss_mask, tf.int32), e - final_e)
 
+            else:
+                loss = iteration_loss if i == 0 else loss + iteration_loss
+if not ARGS.mask:
+    final_s = s
+    final_e = e
 mean_loss = tf.reduce_mean(loss)
 tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
@@ -263,6 +273,7 @@ with chosen_session as sess:
         random.shuffle(shuffling) 
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
+        prev_time = time.time()
         epoch_loss = 0
         for dp_index in range(0, dataset_length, batch_size):
             if dp_index + batch_size > dataset_length:
@@ -279,10 +290,13 @@ with chosen_session as sess:
                 em_score_log: new_em_score
                 }
 
-            if dp_index//batch_size % 10 == 0: #or batch_size == dataset_length-batch_num:
+            if (dp_index//batch_size + 1)% 10 == 0: #or batch_size == dataset_length-batch_num:
                 _, loss_val, summary_val, = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
+                dp_time = (time.time() - prev_time)/(10.0*batch_size)
+                prev_time = time.time()
                 writer.add_summary(summary_val, global_batch_num)
-                print("\tBatch: {}\tloss: {}".format(dp_index // batch_size, loss_val))
+                #loss_val = round(loss_val, 5)
+                print("\tBatch: {}\tloss: {}\t Time per data point: {}".format((dp_index//batch_size)+1,loss_val, utils.time_format(dp_time)))
                 epoch_loss += loss_val
             else:
                 sess.run([train_step], feed_dict=feed_dict)
