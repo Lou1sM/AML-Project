@@ -7,7 +7,7 @@ import nltk
 import pickle 
 import random
 
-filename = 'data/embedding/glove.840B.300d.txt'
+filename = 'data/embedding/glove.6B/glove.6B.300d.txt'
 train_json_filename = 'data/squad/train-v1.1.json'
 test_json_filename = 'data/squad/dev-v1.1.json'
 time1 = time.time()
@@ -44,7 +44,6 @@ def save_titles():
 	return list(answer)
 
 def process_squad(x, multiple_answers):
-	global max_count
 	context = nltk.word_tokenize(x['context'])
 	qas = x['qas']
 	answers = list(map(lambda x: x['answers'], qas))
@@ -124,13 +123,15 @@ def save_embeddings(type_of_embeddings):
 		output_data_array = [[documents, questions, answers, ids], [lengths_doc, lengths_que]]
 		np.save('data/'+type_of_embeddings+'_shuffled', output_data_array)
 	else:
-		documents = list(map (lambda x: np.array(x[0]), data_array))
-		questions = list(map (lambda x: np.array(x[1]), data_array))
-		answers = list(map (lambda x: np.array(x[2]), data_array))
-		data_array = [documents,questions,answers] 
+		documents = list(map (lambda x: x[0], data_array))
+		questions = list(map (lambda x: x[1], data_array))
+		answers = list(map (lambda x: x[2], data_array))
+		ids = list(map (lambda x: x[3], data_array))
+		data_array = [[documents,questions,answers,ids],[[],[]]] 
+		np.save('data/'+type_of_embeddings+'_shuffled', data_array)
 
 
 # the types are 'padded_train_data', 'unpadded_train_data', 'padded_test_data', 'unpadded_test_data'
 # the padded version also contain the lenghts of the original data points 
-type_of_embeddings = 'padded_train_data'
+type_of_embeddings = 'unpadded_test_data'
 save_embeddings(type_of_embeddings)
