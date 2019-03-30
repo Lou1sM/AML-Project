@@ -43,6 +43,10 @@ def save_titles():
 	answer = map(lambda x: x['title'], data['data'])
 	return list(answer)
 
+def char_to_word_index(string, char_index):
+	fixed_index = char_index if char_index == 0 or string[char_index-1].isspace() else char_index - 1
+	len(nltk.word_tokenize(string[:fixed_index]))
+
 def process_squad(x, multiple_answers):
 	global max_count
 	context = nltk.word_tokenize(x['context'])
@@ -56,14 +60,14 @@ def process_squad(x, multiple_answers):
 				answer = answers[i][j]
 				len_answer = len(nltk.word_tokenize(answer['text']))
 				answer_character_position = answer['answer_start']
-				answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+				answer = char_to_word_index(x['context'], answer_character_position)
 				intervals.append([answer, answer+len_answer-1])
 			answer_interval.append(intervals)
 		else:		
 			answer = answers[i][0]
 			len_answer = len(nltk.word_tokenize(answer['text']))
 			answer_character_position = answer['answer_start']
-			answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+			answer = char_to_word_index(x['context'], answer_character_position)
 			answer_interval.append([answer, answer+len_answer-1])
 	question = list(map(lambda x: nltk.word_tokenize(x['question']), qas))
 	ids = list(map(lambda x: x['id'], qas))
