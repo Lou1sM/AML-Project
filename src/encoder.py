@@ -84,6 +84,16 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     #print('D', D.shape)
     #print('Q', Q.shape)
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))
+    if hyperparameters.mask:
+        # IMPORTANT! This ONLY works because there are sentinels.
+        # To build the mask, the tf.cumsum travels backwards on the one-hot encoding of doc/que lengths.
+        # If there were no sentinels, the first 1 might fall outside of the tensor!
+        doc_words_mask = tf.math.cumsum(tf.one_hot(documents_lengths, 601), axis=1, exclusive=True, reverse=True)
+        que_words_mask = tf.math.cumsum(tf.one_hot(questions_lengths, 61), axis=1, exclusive=True, reverse=True)
+        words_mask = tf.matmul(tf.expand_dims(doc_words_mask, axis=2), tf.expand_dims(que_words_mask, axis = 1))
+        negative_padding_mask = tf.subtract(words_mask, 1)
+        min_float_at_padding = tf.multiply(negative_padding_mask, tf.cast(-0.5*tf.float32.min, tf.float32))
+        L = tf.add(L, min_float_at_padding)
 
     #print('L', L.shape)
     A_Q = tf.nn.softmax(L, axis=1, name="softmaxed_L")
@@ -98,7 +108,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     concat_2 = concat_2[:, :-1, :]  # remove sentinels
 
     BiLSTM_outputs, BiLSTM_final_fw_state, BiLSTM_final_bw_state = dynamic_bilstm(concat_2, documents_lengths, hyperparameters)
-    return BiLSTM_outputs
+    return L, BiLSTM_outputs
  
  
 def encoder(document, question, documents_lengths, questions_lengths, hyperparameters):

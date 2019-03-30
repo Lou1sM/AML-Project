@@ -77,7 +77,7 @@ with tf.variable_scope("parameters"):
 
 
 with tf.variable_scope("encoder"):
-    encoded = encoder.encoder(
+    L, encoded = encoder.encoder(
         document=d,
         question=q,
         documents_lengths=doc_l,
@@ -96,19 +96,9 @@ with tf.variable_scope("encoder"):
 with tf.variable_scope("decoder"):
     # Calculate padding mask
     if ARGS.mask:
-        zeros_encoded = tf.zeros([ARGS.batch_size, 600, 2 * ARGS.hidden_size], tf.float32)
-        zeros_set = tf.equal(encoded, zeros_encoded)
-        padding_mask_bool = tf.reduce_all(zeros_set, 2)
-        words_mask_bool = tf.logical_not(padding_mask_bool)
-        padding_mask = tf.cast(padding_mask_bool, tf.float32)
-        words_mask = tf.cast(words_mask_bool, tf.float32)
-
-        # Assert that the amount of non-zero words is equal to given document lengths
-        num_nonzero_words = tf.reduce_sum(words_mask, 1)
-        with tf.control_dependencies([tf.assert_equal(tf.cast(num_nonzero_words, tf.int32), tf.cast(doc_l, tf.int32))]):
-            # A tensor filled with the minimum float values
-            min_float = tf.constant(value=-1e9, dtype=tf.float32, shape=[ARGS.batch_size, 600])
-            min_float_at_padding = tf.multiply(min_float, padding_mask)
+        after_padding_mark = tf.one_hot(doc_l, 600)
+        padding_mask = tf.math.cumsum(after_padding_mark, axis=1)
+        min_float_at_padding = tf.multiply(padding_mask, tf.cast(0.5*tf.float32.min, tf.float32))
 
         # Persistent loss mask that remembers whether convergence has already taken place
         loss_mask = tf.constant(True, shape=[ARGS.batch_size])
@@ -158,14 +148,12 @@ with tf.variable_scope("decoder"):
                 )
 
             if ARGS.mask:
-                alphas = tf.multiply(alphas, words_mask)
                 alphas = tf.add(alphas, min_float_at_padding)
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_encoding_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_encoding_indices)
 
             if ARGS.mask:
-                betas = tf.multiply(betas, words_mask)
                 betas = tf.add(betas, min_float_at_padding)
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_encoding_indices = tf.transpose(tf.stack([batch_indices, e]))
@@ -291,7 +279,7 @@ with chosen_session as sess:
                 }
 
             if (dp_index//batch_size + 1)% 10 == 0: #or batch_size == dataset_length-batch_num:
-                _, loss_val, summary_val, = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
+                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
                 dp_time = (time.time() - prev_time)/(10.0*batch_size)
                 prev_time = time.time()
                 writer.add_summary(summary_val, global_batch_num)

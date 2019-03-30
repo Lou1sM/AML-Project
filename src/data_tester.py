@@ -24,6 +24,7 @@ for i in range(0, dataset_length):
     doc_l = doc_l[0]
     que_l = questions_lengths[i]
     for answer in ground_truth:
+        print(answer)
         if (not(answer[0] < doc_l and answer[1] < doc_l and answer[0] <= answer[1])):
             print("ERROR: answer: ", answer, "   doc_l: ", doc_l)
             nerrors += 1
