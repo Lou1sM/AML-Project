@@ -15,8 +15,6 @@ batch_size = 1
 print(dataset_length)
 nerrors = 0
 for i in range(0, dataset_length):
-    if i % 1000 == 0:
-        print(i)
     d = input_d_vecs[i],
     q = input_q_vecs[i],
     ground_truth = ground_truth_labels[i],
@@ -24,8 +22,7 @@ for i in range(0, dataset_length):
     doc_l = doc_l[0]
     que_l = questions_lengths[i]
     for answer in ground_truth:
-        print(answer)
         if (not(answer[0] < doc_l and answer[1] < doc_l and answer[0] <= answer[1])):
-            print("ERROR: answer: ", answer, "   doc_l: ", doc_l)
+            print("ERROR at", i, ":  answer:", answer, "   doc_l:", doc_l)
             nerrors += 1
 print(nerrors, " errors")
