@@ -278,6 +278,19 @@ with chosen_session as sess:
                 em_score_log: new_em_score
                 }
 
+            # TODO: Get rid of this once the end-indices of datapoints are fixed!
+            invalid_batch = False
+            for bi in range(0, batch_size):
+                answer_end_index = feed_dict[ending_labels][bi]
+                document_length = feed_dict[doc_l][bi]
+                if not answer_end_index < document_length:
+                    invalid_batch = True
+                    break
+            if invalid_batch:
+                print("Batch with invalid datapoint encounterd, skipping...")
+                continue
+            # Remove up until here
+
             if (dp_index//batch_size + 1)% 10 == 0: #or batch_size == dataset_length-batch_num:
                 _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
                 dp_time = (time.time() - prev_time)/(10.0*batch_size)
