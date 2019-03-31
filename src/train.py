@@ -187,6 +187,7 @@ file = open(file_name, "w")
 fileEM_name = "logEM" + str(time_now) + ".txt"
 fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
 fileEM = open(fileEM_name, "w")
+fileEM.write("Hyperparameters:" + str(ARGS))
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -257,8 +258,6 @@ with tf.Session() as sess:
             #print(time.time()-batch_time)
             if ARGS.test:
                 break
-        import pdb
-        pdb.set_trace()
         epoch_loss = epoch_loss/(int(dataset_length/(10*batch_size))+1)
         total_count = 0.1
         exact_matches = 0.1
@@ -348,7 +347,6 @@ with tf.Session() as sess:
             fileEM.flush()
 
 train_end_time = time.time()
-
 print("Train time", utils.time_format(train_end_time - train_start_time))
 """
 with tf.Session() as sess:
