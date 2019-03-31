@@ -34,8 +34,8 @@ parser.add_argument("--short_test", "-s", default=False, action="store_true", he
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
-parser.add_argument("--mask", default=False, action="store_true", help="Whether to apply mask.")
-
+parser.add_argument("--mask", default=False, action="store_true", help="Whether to apply padding masks.")
+parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
 
 ARGS = parser.parse_args()
 keep_probability = ARGS.keep_prob
@@ -171,7 +171,7 @@ with tf.variable_scope("decoder"):
             )
 
             iteration_loss = s_loss + e_loss
-            if ARGS.mask:
+            if ARGS.converge:
                 with tf.variable_scope("iteration_" + str(i) + "_loss"):
                     s_mask = tf.equal(s, s_prev)
                     e_mask = tf.equal(e, e_prev)
