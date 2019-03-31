@@ -87,7 +87,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     if hyperparameters.mask:
         # IMPORTANT! This ONLY works because there are sentinels.
         # To build the mask, the tf.cumsum travels backwards on the one-hot encoding of doc/que lengths.
-        # If there were no sentinels, the first 1 might fall outside of the tensor!
+        # If there were no sentinels, the first 1 might fall outside of the tensor
         doc_words_mask = tf.math.cumsum(tf.one_hot(documents_lengths, 601), axis=1, reverse=True)
         que_words_mask = tf.math.cumsum(tf.one_hot(questions_lengths, 61), axis=1, reverse=True)
         words_mask = tf.matmul(tf.expand_dims(doc_words_mask, axis=2), tf.expand_dims(que_words_mask, axis = 1))
