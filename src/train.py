@@ -35,7 +35,7 @@ parser.add_argument("--pool_size", default=16, type=int, help="Number of units t
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
 
-parser.add_argument("--mask", default=False, action="store_true", help="Whether to apply padding masks.")
+parser.add_argument("--padding_mask", default=False, action="store_true", help="Whether to apply padding masks.")
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
 parser.add_argument("--regularize", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
 parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
