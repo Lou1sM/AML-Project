@@ -9,19 +9,22 @@ from utils import bias_variable, variable_summaries
 
 # Provide hyperparameters to functions below as dictionary with keys "hidden_size", "keep_prob", "batch_size"
 
-def build_lstm_cell(hidden_size = 200, keep_prob = 1, batch_size = 10):
+def build_lstm_cell(hidden_size = 200, keep_prob = 1, batch_size = 10, use_dropout = True):
     # lstm = tf.contrib.rnn.BasicLSTMCell(hidden_size) # deprecated
     lstm = tf.nn.rnn_cell.LSTMCell(name='basic_lstm_cell', num_units = hidden_size)
-    cell = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob = keep_prob)
+    if use_dropout:
+        cell = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob = keep_prob)
+    else:
+        cell = lstm
     initial_state = cell.zero_state(batch_size, tf.float32)
     return initial_state, cell
 
 
-def dynamic_lstm(embed, sequence_lengths, hyperparameters):
+def dynamic_lstm(embed, sequence_lengths, hyperparameters, use_dropout = True):
     hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    initial_state, cell = build_lstm_cell(hidden_size, keep_prob, batch_size)
+    initial_state, cell = build_lstm_cell(hidden_size, keep_prob, batch_size, use_dropout)
     embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_state = tf.nn.dynamic_rnn(cell = cell, inputs = embed, sequence_length = sequence_lengths, initial_state = initial_state)
     return lstm_outputs, final_state
@@ -55,10 +58,13 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
     hidden_size = hyperparameters.hidden_size
     with tf.variable_scope('lstm', reuse = tf.AUTO_REUSE) as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
-        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters)
+        # No dropout for when questions pass
+        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters, use_dropout=False)
     with tf.variable_scope('tanhlayer') as scope:
         linear_model = tf.layers.Dense(units = hidden_size)
         question_enc = tf.math.tanh(linear_model(que_lstm_outputs))
+        # add dropout after tanh
+        question_enc = tf.nn.dropout(question_enc, keep_prob=hyperparameters.keep_prob)
  
     return document_enc, question_enc
 
