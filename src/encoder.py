@@ -34,7 +34,7 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    if hyperparameters.regularize:
+    if hyperparameters.bi_lstm_dropout:
         initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1-keep_prob, batch_size=batch_size)
         initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1-keep_prob, batch_size=batch_size)
     else:
@@ -95,13 +95,16 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     #print('D', D.shape)
     #print('Q', Q.shape)
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))
-    if hyperparameters.mask:
-        # IMPORTANT! This ONLY works because there are sentinels.
-        # To build the mask, the tf.cumsum travels backwards on the one-hot encoding of doc/que lengths.
-        # If there were no sentinels, the first 1 might fall outside of the tensor
-        doc_words_mask = tf.math.cumsum(tf.one_hot(documents_lengths, 601), axis=1, reverse=True)
-        que_words_mask = tf.math.cumsum(tf.one_hot(questions_lengths, 61), axis=1, reverse=True)
-        words_mask = tf.matmul(tf.expand_dims(doc_words_mask, axis=2), tf.expand_dims(que_words_mask, axis = 1))
+    if hyperparameters.padding_mask:
+        document_end_indices = tf.subtract(documents_lengths, 1)
+        question_end_indices = tf.subtract(questions_lengths, 1)
+        doc_words_mask = tf.math.cumsum(tf.one_hot(document_end_indices, 600), axis=1, reverse=True)
+        que_words_mask = tf.math.cumsum(tf.one_hot(question_end_indices, 60), axis=1, reverse=True)
+        # add sentinels
+        sentinel_mask = tf.ones([hyperparameters.batch_size, 1])
+        doc_words_mask = tf.concat([doc_words_mask, sentinel_mask], axis=1)
+        que_words_mask = tf.concat([que_words_mask, sentinel_mask], axis=1)
+        words_mask = tf.matmul(tf.expand_dims(doc_words_mask, axis=2), tf.expand_dims(que_words_mask, axis=1))
         negative_padding_mask = tf.subtract(words_mask, 1)
         min_float_at_padding = tf.multiply(negative_padding_mask, tf.cast(-0.5*tf.float32.min, tf.float32))
         L = tf.add(L, min_float_at_padding)

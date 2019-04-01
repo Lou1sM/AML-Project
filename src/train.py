@@ -37,7 +37,7 @@ parser.add_argument("--restore", default=None, type=str, help="File path for the
 
 parser.add_argument("--padding_mask", default=False, action="store_true", help="Whether to apply padding masks.")
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
-parser.add_argument("--regularize", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
+parser.add_argument("--bi_lstm_dropout", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
 parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
 parser.add_argument("--q_tanh_dropout", default=False, action="store_true", help="Whether to use dropout after the question tanh.")
 
@@ -79,7 +79,6 @@ with tf.variable_scope("parameters"):
     tf.summary.scalar('keep_prob', ARGS.keep_prob)
     tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
 
-
 with tf.variable_scope("encoder"):
     L, encoded = encoder.encoder(
         document=d,
@@ -99,7 +98,7 @@ with tf.variable_scope("encoder"):
 
 with tf.variable_scope("decoder"):
     # Calculate padding mask
-    if ARGS.mask:
+    if ARGS.padding_mask:
         after_padding_mark = tf.one_hot(doc_l, 600)
         padding_mask = tf.math.cumsum(after_padding_mark, axis=1)
         min_float_at_padding = tf.multiply(padding_mask, tf.cast(0.5*tf.float32.min, tf.float32))
@@ -153,13 +152,13 @@ with tf.variable_scope("decoder"):
                     name="HMN_end"
                 )
 
-            if ARGS.mask:
+            if ARGS.padding_mask:
                 alphas = tf.add(alphas, min_float_at_padding)
             s = tf.argmax(alphas, axis=1, output_type=tf.int32)
             s_encoding_indices = tf.transpose(tf.stack([batch_indices, s]))
             u_s = tf.gather_nd(encoded, s_encoding_indices)
 
-            if ARGS.mask:
+            if ARGS.padding_mask:
                 betas = tf.add(betas, min_float_at_padding)
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_encoding_indices = tf.transpose(tf.stack([batch_indices, e]))
@@ -198,7 +197,7 @@ with tf.variable_scope("decoder"):
 
             else:
                 loss = iteration_loss if i == 0 else loss + iteration_loss
-if not ARGS.mask:
+if not ARGS.converge:
     final_s = s
     final_e = e
 mean_loss = tf.reduce_mean(loss)
