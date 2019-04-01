@@ -34,7 +34,7 @@ parser.add_argument("--short_test", "-s", default=False, action="store_true", he
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
-
+parser.add_argument("--log_folder", default=False, action="store_true", help="Whether to generate a folder with experimental results.")
 parser.add_argument("--padding_mask", default=False, action="store_true", help="Whether to apply padding masks.")
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
 parser.add_argument("--bi_lstm_dropout", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
@@ -205,10 +205,18 @@ tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
+time_now = datetime.datetime.now()
+
+logFolder = ""
+if(ARGS.log_folder):
+    logFolder = "logFolder" + str(time_now) + "/"
+    logFolder.replace(':', '-').replace(' ', '_')
+    tf.gfile.MkDir(logFolder)
+
 # For Tensorboard
 merged = tf.summary.merge_all()
 #summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
-summaryDirectory = "summaries/"
+summaryDirectory = logFolder + "summaries/"
 tf.gfile.MkDir(summaryDirectory)
 summaryDirectory += str(datetime.datetime.now())
 summaryDirectory = summaryDirectory.replace('.', '_').replace(':', '-').replace(' ', '_')
@@ -218,8 +226,7 @@ writer.add_graph(tf.get_default_graph())
 
 saver = tf.train.Saver(max_to_keep = 100)
 
-time_now = datetime.datetime.now()
-logDirectory = "logs/"
+logDirectory = logFolder + "logs/"
 tf.gfile.MkDir(logDirectory)
 file_name = "log" + str(time_now) + ".txt"
 file_name = file_name.replace(':', '-').replace(' ', '_')
@@ -257,6 +264,13 @@ with chosen_session as sess:
     new_avg_f1 = 0
     new_em_score = 0
     for epoch in range(ARGS.num_epochs):
+
+        json_predictions = {}
+        json_predictions['epoch'] = epoch
+        json_predictions['pred'] = []
+
+        jsonFileName = "predictions_epoch_" + str(epoch) + ".json"
+        jsonFile = open(logDirectory + jsonFileName, "w")
 
         print("\nEpoch:", epoch)
         file.write("Epoch: " + str(epoch) + "\n")
@@ -367,6 +381,12 @@ with chosen_session as sess:
                     file.write("___________________________\n")
                     file.flush()
 
+                    json_dp = {}
+                    json_dp["id"] = str(questions_ids_validation[dp_index_validation + i])
+                    json_dp["start"] = start_predict_validation[i]
+                    json_dp["end"] = end_predict_validation[i]
+                    json_predictions['pred'].append(json_dp)
+
             if ARGS.test:
                 break
         total_epoch_val_loss = total_epoch_val_loss/(int(dataset_length_validation/batch_size))
@@ -376,9 +396,13 @@ with chosen_session as sess:
             best_avg_f1 = new_avg_f1
 
         print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
+
+        json.dump(json_predictions, jsonFile)
+        jsonFile.close()
+
         if new_em_score > best_em_score:
             #save_path = saver.save(sess, "checkpoints/model.ckpt")
-            save_path = saver.save(sess, "checkpoints/model{}.ckpt".format(epoch))
+            save_path = saver.save(sess, logFolder + "checkpoints/model{}.ckpt".format(epoch))
             print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
             print("Epoch validation loss: %f" % total_epoch_val_loss)
             fileEM.write("Epoch number:" + str(epoch))
