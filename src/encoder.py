@@ -59,12 +59,13 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
     with tf.variable_scope('lstm', reuse = tf.AUTO_REUSE) as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
         # No dropout for when questions pass
-        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters, use_dropout=False)
+        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters, use_dropout=hyperparameters.q_lstm_dropout)
     with tf.variable_scope('tanhlayer') as scope:
         linear_model = tf.layers.Dense(units = hidden_size)
         question_enc = tf.math.tanh(linear_model(que_lstm_outputs))
         # add dropout after tanh
-        question_enc = tf.nn.dropout(question_enc, keep_prob=hyperparameters.keep_prob)
+        if hyperparameters.q_tanh_dropout:
+            question_enc = tf.nn.dropout(question_enc, keep_prob=hyperparameters.keep_prob)
  
     return document_enc, question_enc
 

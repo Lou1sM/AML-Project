@@ -34,9 +34,12 @@ parser.add_argument("--short_test", "-s", default=False, action="store_true", he
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
+
 parser.add_argument("--mask", default=False, action="store_true", help="Whether to apply padding masks.")
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
-parser.add_argument("--regularize", default=False, action="store_true", help="Whether to use extra regularization methods.")
+parser.add_argument("--regularize", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
+parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
+parser.add_argument("--q_tanh_dropout", default=False, action="store_true", help="Whether to use dropout after the question tanh.")
 
 ARGS = parser.parse_args()
 keep_probability = ARGS.keep_prob
@@ -281,7 +284,7 @@ with chosen_session as sess:
                 em_score_log: new_em_score
                 }
 
-            # TODO: Get rid of this once the end-indices of datapoints are fixed!
+            '''
             invalid_batch = False
             for bi in range(0, batch_size):
                 answer_end_index = feed_dict[ending_labels][bi]
@@ -292,7 +295,7 @@ with chosen_session as sess:
             if invalid_batch:
                 print("Batch with invalid datapoint encounterd, skipping...")
                 continue
-            # Remove up until here
+            '''
 
             if (dp_index//batch_size + 1)% 10 == 0: #or batch_size == dataset_length-batch_num:
                 _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
