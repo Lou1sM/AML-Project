@@ -100,6 +100,8 @@ with tf.variable_scope("decoder"):
         padding_mask = tf.math.cumsum(after_padding_mark, axis=1)
         min_float_at_padding = tf.multiply(padding_mask, tf.cast(0.5*tf.float32.min, tf.float32))
 
+    # Initialize variables if convergence is enabled
+    if ARGS.converge:
         # Persistent loss mask that remembers whether convergence has already taken place
         loss_mask = tf.constant(True, shape=[ARGS.batch_size])
         s_prev = tf.constant(-1, dtype=tf.int32, shape=[ARGS.batch_size])
