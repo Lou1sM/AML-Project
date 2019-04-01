@@ -75,11 +75,13 @@ def process_squad(x, multiple_answers):
 			text_answer = answerin['text']
 			text_answer = text_answer.replace("-", " - ")
 			text_answer = text_answer.replace("–", " – ")
+			text_answer = text_answer.replace(chr(8212)," "+chr(8212)+" ")
 			len_answer = len(nltk.word_tokenize(text_answer))
 			answer_character_position = answerin['answer_start']
 			text = x['context'][:answer_character_position]
 			text = text.replace("-", " - ")
 			text = text.replace("–", " – ")
+			text = text.replace(chr(8212)," "+chr(8212)+" ")
 			# if(answer_character_position>0):
 			# 	positions.append(answer_character_position-1)
 			answer = len(nltk.word_tokenize(text))
@@ -94,12 +96,17 @@ def process_squad(x, multiple_answers):
 	# for i in range(len(positions)):
 	# 	pos = positions[i] + i
 	# 	text = text[:pos] + ' ' + text[pos:]
-	text = text.replace("-", " - ")
+	text = text.replace(" - ", " - ")
 	text = text.replace("–", " – ")
+	text = text.replace(chr(8212)," "+chr(8212)+" ")
+
+
+
 	def que_tra(y):
 		question = y['question']
 		question = question.replace("-", " - ")
 		question = question.replace("–", " – ")
+		question = question.replace(chr(8212)," "+chr(8212)+" ")
 		return nltk.word_tokenize(question)
 	question = list(map(lambda y: que_tra(y) , qas))
 	context = nltk.word_tokenize(text)
@@ -170,5 +177,5 @@ def save_embeddings(type_of_embeddings):
 
 # the types are 'padded_train_data', 'unpadded_train_data', 'padded_test_data', 'unpadded_test_data'
 # the padded version also contain the lenghts of the original data points 
-type_of_embeddings = 'padded_test_data'
+type_of_embeddings = 'padded_train_data'
 save_embeddings(type_of_embeddings)
