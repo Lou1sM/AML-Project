@@ -7,7 +7,7 @@ import nltk
 import pickle 
 import random
 
-filename = 'data/embedding/glove.840B.300d.txt'
+filename = 'data/embedding/glove.6B/glove.6B.300d.txt'
 train_json_filename = 'data/squad/train-v1.1.json'
 test_json_filename = 'data/squad/dev-v1.1.json'
 time1 = time.time()
@@ -48,28 +48,64 @@ def process_squad(x, multiple_answers):
 	qas = x['qas']
 	answers = list(map(lambda x: x['answers'], qas))
 	answer_interval = []
+	positions = []
 	for i in range(len(answers)):
 		if(multiple_answers):
 			intervals = []
 			for j in range(len(answers[i])):
-				answer = answers[i][j]
-				len_answer = len(nltk.word_tokenize(answer['text']))
-				answer_character_position = answer['answer_start']
-				x['context'] = x['context'][:answer_character_position] + ' ' + x['context'][answer_character_position:]
-				answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+				answerin = answers[i][j]
+				text_answer = answerin['text']
+				text_answer = text_answer.replace("-", " - ")
+				text_answer = text_answer.replace("–", " – ")
+				len_answer = len(nltk.word_tokenize(text_answer))
+				answer_character_position = answerin['answer_start']
+				text = x['context'][:answer_character_position]
+				text = text.replace("-", " - ")
+				text = text.replace("–", " – ")
+				# if(answer_character_position>0):
+				# 	positions.append(answer_character_position-1)
+				answer = len(nltk.word_tokenize(text))
 				intervals.append([answer, answer+len_answer-1])
+				#positions.append(answer_character_position+len(answerin['text']))
+				del(text)
+				del(text_answer)
 			answer_interval.append(intervals)
 		else:		
-			answer = answers[i][0]
-			len_answer = len(nltk.word_tokenize(answer['text']))
-			answer_character_position = answer['answer_start']
-			x['context'] = x['context'][:answer_character_position] + ' ' + x['context'][answer_character_position:]
-			answer = len(nltk.word_tokenize(x['context'][:answer_character_position]))
+			answerin = answers[i][0]
+			text_answer = answerin['text']
+			text_answer = text_answer.replace("-", " - ")
+			text_answer = text_answer.replace("–", " – ")
+			len_answer = len(nltk.word_tokenize(text_answer))
+			answer_character_position = answerin['answer_start']
+			text = x['context'][:answer_character_position]
+			text = text.replace("-", " - ")
+			text = text.replace("–", " – ")
+			# if(answer_character_position>0):
+			# 	positions.append(answer_character_position-1)
+			answer = len(nltk.word_tokenize(text))
 			answer_interval.append([answer, answer+len_answer-1])
-	question = list(map(lambda x: nltk.word_tokenize(x['question']), qas))
-	context = nltk.word_tokenize(x['context'])
+			#positions.append(answer_character_position+len(answerin['text']))
+			del(text)
+			del(text_answer)
+
+	# positions = list(set(positions))
+	# positions.sort()
+	text = x['context']
+	# for i in range(len(positions)):
+	# 	pos = positions[i] + i
+	# 	text = text[:pos] + ' ' + text[pos:]
+	text = text.replace("-", " - ")
+	text = text.replace("–", " – ")
+	def que_tra(y):
+		question = y['question']
+		question = question.replace("-", " - ")
+		question = question.replace("–", " – ")
+		return nltk.word_tokenize(question)
+	question = list(map(lambda y: que_tra(y) , qas))
+	context = nltk.word_tokenize(text)
 	ids = list(map(lambda x: x['id'], qas))
 	qa = list(zip(question, answer_interval, ids))
+	del(text)
 	product = [context, qa]
 	return product
 
@@ -134,5 +170,5 @@ def save_embeddings(type_of_embeddings):
 
 # the types are 'padded_train_data', 'unpadded_train_data', 'padded_test_data', 'unpadded_test_data'
 # the padded version also contain the lenghts of the original data points 
-type_of_embeddings = 'padded_train_data'
+type_of_embeddings = 'padded_test_data'
 save_embeddings(type_of_embeddings)
