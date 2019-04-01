@@ -36,6 +36,7 @@ parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether
 parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
 parser.add_argument("--mask", default=False, action="store_true", help="Whether to apply padding masks.")
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
+parser.add_argument("--regularize", default=False, action="store_true", help="Whether to use extra regularization methods.")
 
 ARGS = parser.parse_args()
 keep_probability = ARGS.keep_prob
