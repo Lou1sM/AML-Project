@@ -42,7 +42,7 @@ def save_titles():
 	data = load_train_data(json_filename)
 	answer = map(lambda x: x['title'], data['data'])
 	return list(answer)
-
+max_count = 0
 def process_squad(x, multiple_answers):
 	global max_count
 	qas = x['qas']
@@ -55,40 +55,37 @@ def process_squad(x, multiple_answers):
 			for j in range(len(answers[i])):
 				answerin = answers[i][j]
 				text_answer = answerin['text']
-				text_answer = text_answer.replace("-", " - ")
-				text_answer = text_answer.replace("–", " – ")
 				len_answer = len(nltk.word_tokenize(text_answer))
 				answer_character_position = answerin['answer_start']
 				text = x['context'][:answer_character_position]
-				text = text.replace("-", " - ")
-				text = text.replace("–", " – ")
 				# if(answer_character_position>0):
 				# 	positions.append(answer_character_position-1)
 				answer = len(nltk.word_tokenize(text))
 				intervals.append([answer, answer+len_answer-1])
 				#positions.append(answer_character_position+len(answerin['text']))
-				del(text)
-				del(text_answer)
 			answer_interval.append(intervals)
 		else:		
 			answerin = answers[i][0]
 			text_answer = answerin['text']
-			text_answer = text_answer.replace("-", " - ")
-			text_answer = text_answer.replace("–", " – ")
-			text_answer = text_answer.replace(chr(8212)," "+chr(8212)+" ")
 			len_answer = len(nltk.word_tokenize(text_answer))
 			answer_character_position = answerin['answer_start']
 			text = x['context'][:answer_character_position]
-			text = text.replace("-", " - ")
-			text = text.replace("–", " – ")
-			text = text.replace(chr(8212)," "+chr(8212)+" ")
+			if(not (answer_character_position>0 and text[answer_character_position-1]!=" " 
+					and text[answer_character_position-1]!="(" 
+					and text[answer_character_position-1]!="$" 
+					and text[answer_character_position-1]!='"'
+					and text[answer_character_position-1]!='“'
+					and text[answer_character_position-1]!="'"
+					and text[answer_character_position-1]!="⟨"
+					and text[answer_character_position-1]!="[")):
+			# text = text.replace("-", " - ")
+			# text = text.replace("–", " – ")
+			# text = text.replace(chr(8212)," "+chr(8212)+" ")
 			# if(answer_character_position>0):
 			# 	positions.append(answer_character_position-1)
-			answer = len(nltk.word_tokenize(text))
-			answer_interval.append([answer, answer+len_answer-1])
+				answer = len(nltk.word_tokenize(text))
+				answer_interval.append([answer, answer+len_answer-1])
 			#positions.append(answer_character_position+len(answerin['text']))
-			del(text)
-			del(text_answer)
 
 	# positions = list(set(positions))
 	# positions.sort()
@@ -96,23 +93,15 @@ def process_squad(x, multiple_answers):
 	# for i in range(len(positions)):
 	# 	pos = positions[i] + i
 	# 	text = text[:pos] + ' ' + text[pos:]
-	text = text.replace(" - ", " - ")
-	text = text.replace("–", " – ")
-	text = text.replace(chr(8212)," "+chr(8212)+" ")
-
 
 
 	def que_tra(y):
 		question = y['question']
-		question = question.replace("-", " - ")
-		question = question.replace("–", " – ")
-		question = question.replace(chr(8212)," "+chr(8212)+" ")
 		return nltk.word_tokenize(question)
 	question = list(map(lambda y: que_tra(y) , qas))
 	context = nltk.word_tokenize(text)
 	ids = list(map(lambda x: x['id'], qas))
 	qa = list(zip(question, answer_interval, ids))
-	del(text)
 	product = [context, qa]
 	return product
 
@@ -166,6 +155,11 @@ def save_embeddings(type_of_embeddings):
 			questions.append(que)
 			answers.append(ans)
 			ids.append(q_id)
+
+		print("HERE")
+		for i in range(len(documents)):
+			if(answers[i][1]>=lengths_doc[i]):
+				print(i)
 		output_data_array = [[documents, questions, answers, ids], [lengths_doc, lengths_que]]
 		np.save('data/'+type_of_embeddings+'_shuffled', output_data_array)
 	else:
