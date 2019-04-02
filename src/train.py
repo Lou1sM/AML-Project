@@ -11,6 +11,7 @@ import utils
 import random
 from tensorflow.python.client import timeline
 from tensorflow.python import debug as tf_debug
+import json
 
 
 start_time = time.time()
@@ -35,11 +36,15 @@ parser.add_argument("--pool_size", default=16, type=int, help="Number of units t
 parser.add_argument("--tfdbg", default=False, action="store_true", help="Whether to enter tf debugger")
 parser.add_argument("--restore", default=None, type=str, help="File path for the checkpoint to restore from. If None then don't restore.")
 parser.add_argument("--log_folder", default=False, action="store_true", help="Whether to generate a folder with experimental results.")
+parser.add_argument("--num_iterations_hmn", default=4, type=int, help="The number of HMN decoding loops")
+
 parser.add_argument("--padding_mask", default=False, action="store_true", help="Whether to apply padding masks.")
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
+
 parser.add_argument("--bi_lstm_dropout", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
 parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
 parser.add_argument("--q_tanh_dropout", default=False, action="store_true", help="Whether to use dropout after the question tanh.")
+
 
 ARGS = parser.parse_args()
 keep_probability = ARGS.keep_prob
@@ -122,7 +127,7 @@ with tf.variable_scope("decoder"):
     u_e = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size], tf.float32)  # Dummy guess end point
 
     with tf.variable_scope("decoding_loop"):
-        for i in range(4):
+        for i in range(ARGS.num_iterations_hmn):
             # LSTM input is concatenation of previous guesses
             usue = tf.concat([u_s, u_e], axis=1)
             lstm_output, h = decoding_lstm(inputs=usue, state=h)
@@ -218,8 +223,9 @@ merged = tf.summary.merge_all()
 #summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
 summaryDirectory = logFolder + "summaries/"
 tf.gfile.MkDir(summaryDirectory)
-summaryDirectory += str(datetime.datetime.now())
-summaryDirectory = summaryDirectory.replace('.', '_').replace(':', '-').replace(' ', '_')
+dateSummary = str(datetime.datetime.now())
+dateSummary = dateSummary.replace('.', '_').replace(':', '-').replace(' ', '_')
+summaryDirectory += dateSummary
 tf.gfile.MkDir(summaryDirectory)
 writer = tf.summary.FileWriter(summaryDirectory)
 writer.add_graph(tf.get_default_graph())
@@ -266,7 +272,7 @@ with chosen_session as sess:
     for epoch in range(ARGS.num_epochs):
 
         json_predictions = {}
-        json_predictions['epoch'] = epoch
+        json_predictions['epoch'] = int(epoch)
         json_predictions['pred'] = []
 
         jsonFileName = "predictions_epoch_" + str(epoch) + ".json"
@@ -383,8 +389,8 @@ with chosen_session as sess:
 
                     json_dp = {}
                     json_dp["id"] = str(questions_ids_validation[dp_index_validation + i])
-                    json_dp["start"] = start_predict_validation[i]
-                    json_dp["end"] = end_predict_validation[i]
+                    json_dp["start"] = int(start_predict_validation[i])
+                    json_dp["end"] = int(end_predict_validation[i])
                     json_predictions['pred'].append(json_dp)
 
             if ARGS.test:
@@ -396,7 +402,6 @@ with chosen_session as sess:
             best_avg_f1 = new_avg_f1
 
         print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
-
         json.dump(json_predictions, jsonFile)
         jsonFile.close()
 

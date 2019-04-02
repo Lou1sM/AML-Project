@@ -26,9 +26,4 @@ def get_data(typeData):
         all_answers = data_array[0][2]
         ids_questions = data_array[0][3]
 
-    # if(typeData == "train"):
-    #     size = 200
-    # else:
-    #     size = 200
-
     return documents[:size], questions[:size], answers[:size], lengths_documents[:size], lengths_questions[:size], ids_questions[:size], all_answers[:size]
