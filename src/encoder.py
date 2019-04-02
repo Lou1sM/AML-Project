@@ -31,8 +31,8 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     hidden_size = hyperparameters.hidden_size
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
-    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
-    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
+    initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=keep_prob, batch_size=batch_size)
+    initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=keep_prob, batch_size=batch_size)
     embed = tf.cast(embed,tf.float32)
     lstm_outputs, final_fw_state, final_bw_state = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(
                                                         cells_fw = [fw_cell], 
@@ -49,13 +49,13 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
     # Use batch_size from hyperparameters, dropout, num_cells
     # Data needs to come padded, also need the length 
     hidden_size = hyperparameters.hidden_size
+    keep_prob = hyperparameters.keep_prob
     with tf.variable_scope('lstm', reuse = tf.AUTO_REUSE) as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
         que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters)
     with tf.variable_scope('tanhlayer') as scope:
-        linear_model = tf.layers.Dense(units = hidden_size)
-        question_enc = tf.math.tanh(linear_model(que_lstm_outputs))
- 
+        dense = tf.layers.dense(que_lstm_outputs, units=hidden_size, activation=tf.math.tanh)
+        question_enc = tf.layers.dropout(dense, rate=1-keep_prob)
     return document_enc, question_enc
 
 # Once we agree on shapes, use code below to write tensor as vector
