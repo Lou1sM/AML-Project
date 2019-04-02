@@ -5,7 +5,7 @@ import os
 def get_train_val_scores(filename):
     filename_lines = open(filename).readlines()
     train_losses = [float(line[17:25]) for line in filename_lines if "Epoch loss" in line]
-    val_losses = [float(line[-9:-1]) for line in filename_lines if "Epoch validation loss" in line]
+    val_losses = [float(line[23:30]) for line in filename_lines if "Epoch validation loss" in line]
     return train_losses, val_losses
 
 def plot_losses(train_losses, val_losses=None, title='', filepath=None): 
