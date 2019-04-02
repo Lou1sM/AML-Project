@@ -12,6 +12,7 @@ import random
 from tensorflow.python.client import timeline
 from tensorflow.python import debug as tf_debug
 import json
+import log_reader
 
 
 start_time = time.time()
@@ -51,7 +52,11 @@ keep_probability = ARGS.keep_prob
 
 if ARGS.test:
     print("Running in test mode")
-
+    ARGS.num_iterations_hmn=1
+    ARGS.hidden_size=10
+    ARGS.pool_size=1
+    ARGS.batch_size=1
+    ARGS.num_epochs=3
 
 with tf.variable_scope("data_prep"):
     input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = ciprian_data_prep_script.get_data("train")
@@ -214,36 +219,71 @@ time_now = datetime.datetime.now()
 
 logFolder = ""
 if(ARGS.log_folder):
-    logFolder = "logFolder" + str(time_now) + "/"
-    logFolder.replace(':', '-').replace(' ', '_')
-    tf.gfile.MkDir(logFolder)
+    log_dir = os.path.join("/home/shared/logs", str(time_now).replace(':', '-').replace(' ', '_'))
+    orig_mask = os.umask(0)
+    os.makedirs(log_dir, mode=0o777)
+    os.umask(orig_mask)
+    #logFolder.replace(':', '-').replace(' ', '_')
+    #tf.gfile.MkDir(logFolder)
+else:
+    log_dir = ""
+
+#tf.gfile.MkDir(log_dir)
 
 # For Tensorboard
 merged = tf.summary.merge_all()
 #summaryDirectory = "/home/shared/summaries/start_" + str(datetime.datetime.now())
-summaryDirectory = logFolder + "summaries/"
-tf.gfile.MkDir(summaryDirectory)
-dateSummary = str(datetime.datetime.now())
-dateSummary = dateSummary.replace('.', '_').replace(':', '-').replace(' ', '_')
-summaryDirectory += dateSummary
-tf.gfile.MkDir(summaryDirectory)
-writer = tf.summary.FileWriter(summaryDirectory)
+summary_dir = os.path.join(log_dir, "summaries")
+if not os.path.isdir(summary_dir):
+    orig_mask = os.umask(0)
+    os.makedirs(summary_dir, mode=0o777)
+    os.umask(orig_mask)
+
+checkpoint_dir = os.path.join(log_dir, "checkpoints")
+if not os.path.isdir(checkpoint_dir):
+    orig_mask = os.umask(0)
+    os.makedirs(checkpoint_dir, mode=0o777)
+    os.umask(orig_mask)
+
+
+
+#tf.gfile.MkDir(summaryDirectory)
+#dateSummary = str(datetime.datetime.now())
+#dateSummary = dateSummary.replace('.', '_').replace(':', '-').replace(' ', '_')
+#summaryDirectory += dateSummary
+#tf.gfile.MkDir(summaryDirectory)
+#writer = tf.summary.FileWriter(summaryDirectory)
+writer = tf.summary.FileWriter(summary_dir)
 writer.add_graph(tf.get_default_graph())
 
 saver = tf.train.Saver(max_to_keep = 100)
 
-logDirectory = logFolder + "logs/"
-tf.gfile.MkDir(logDirectory)
-file_name = "log" + str(time_now) + ".txt"
-file_name = file_name.replace(':', '-').replace(' ', '_')
-file = open(logDirectory + file_name, "w")
+#logDirectory = logFolder + "logs/"
+#tf.gfile.MkDir(logDirectory)
+#file_name = "log" + str(time_now) + ".txt"
+#file_name = file_name.replace(':', '-').replace(' ', '_')
+#file = open(logDirectory + file_name, "w")
+file = open(os.path.join(log_dir, "log.txt"), "w")
+log_file_path = os.path.join(log_dir, "log.txt")
+os.chmod(log_file_path, 0o777)
+file = open(log_file_path, "w")
 
-fileEM_name = "logEM" + str(time_now) + ".txt"
-fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
-fileEM = open(logDirectory + fileEM_name, "w")
+
+#fileEM_name = "logEM" + str(time_now) + ".txt"
+#fileEM_name = fileEM_name.replace(':', '-').replace(' ', '_')
+#fileEM = open(logDirectory + fileEM_name, "w")
+logEM_file_path = os.path.join(log_dir, "logEM.txt")
+f = open(logEM_file_path, "w").close()
+os.chmod(logEM_file_path, 0o777)
+fileEM = open(logEM_file_path,"w")
 fileEM.write("Hyperparameters:" + str(ARGS))
 
-soft_min = tf.nn.softmax(end_labels)
+param_file_path = os.path.join(log_dir, "params_used.txt")
+with open(param_file_path, "w") as param_file:
+    for key,val in vars(ARGS).items():
+        param_file.write(str(key) + ": " + str(val) + "\n")
+os.chmod(param_file_path, 0o777)
+
 
 if ARGS.tfdbg:
     chosen_session = tf_debug.LocalCLIDebugWrapperSession(tf.Session())
@@ -253,8 +293,8 @@ with chosen_session as sess:
     if ARGS.restore == None:
         sess.run(tf.global_variables_initializer())
     else:
-        restore_path = saver.restore(sess, ARGS.restore)
-        print("Restoring from checkpoint at", ARGS.restore)
+        restore_path = saver.restore(sess, os.path.join(checkpoint_dir, ARGS.restore))
+        print("Restoring from checkpoint at", restore_path)
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
 
@@ -276,10 +316,12 @@ with chosen_session as sess:
         json_predictions['pred'] = []
 
         jsonFileName = "predictions_epoch_" + str(epoch) + ".json"
-        jsonFile = open(logDirectory + jsonFileName, "w")
+        #jsonFile = open(logDirectory + jsonFileName, "w")
+        json_file_path = os.path.join(log_dir, jsonFileName)
+        jsonFile = open(json_file_path, "w")
 
         print("\nEpoch:", epoch)
-        file.write("Epoch: " + str(epoch) + "\n")
+        file.write("\nEpoch: " + str(epoch) + "\n")
 
         batch_size = ARGS.batch_size
         shuffling = list(zip(input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths))
@@ -405,18 +447,20 @@ with chosen_session as sess:
         json.dump(json_predictions, jsonFile)
         jsonFile.close()
 
+        os.chmod(json_file_path, 0o777)
         if new_em_score > best_em_score:
             #save_path = saver.save(sess, "checkpoints/model.ckpt")
-            save_path = saver.save(sess, logFolder + "checkpoints/model{}.ckpt".format(epoch))
+            #save_path = saver.save(sess, logFolder + "checkpoints/model{}.ckpt".format(epoch))
+            save_path = saver.save(sess, os.path.join(checkpoint_dir, "model{}.ckpt".format(epoch)))
             print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
             print("Epoch validation loss: %f" % total_epoch_val_loss)
-            fileEM.write("Epoch number:" + str(epoch))
+            fileEM.write("\nEpoch number:" + str(epoch))
             fileEM.write("\n")
             fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
             fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
             #fileEM.write("\n")
             fileEM.write("\nEpoch loss value:" + str(epoch_loss))
-            fileEM.write("Epoch validation loss: %f" % total_epoch_val_loss)
+            fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
             fileEM.write("\n\n")
             fileEM.flush()
             best_em_score = new_em_score 
@@ -428,12 +472,15 @@ with chosen_session as sess:
             fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
             #fileEM.write("\n")
             fileEM.write("\nEpoch loss value:" + str(epoch_loss))
-            fileEM.write("Epoch validation loss: %f" % total_epoch_val_loss)
+            fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
             fileEM.write("\n\n")
             fileEM.flush()
  
 train_end_time = time.time()
 
+train_loss_scores, val_loss_scores = log_reader.get_train_val_scores(logEM_file_path)
+loss_graph_file_path = os.path.join(log_dir, 'train_val_loss.png')
+log_reader.plot_losses(train_losses=train_loss_scores, val_losses=val_loss_scores, filepath=loss_graph_file_path)
 print("Train time", utils.time_format(train_end_time - train_start_time))
 """
 with tf.Session() as sess:
