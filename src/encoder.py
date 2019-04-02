@@ -35,8 +35,8 @@ def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     keep_prob = hyperparameters.keep_prob
     batch_size = hyperparameters.batch_size
     if hyperparameters.bi_lstm_dropout:
-        initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1-keep_prob, batch_size=batch_size)
-        initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1-keep_prob, batch_size=batch_size)
+        initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=keep_prob, batch_size=batch_size)
+        initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=keep_prob, batch_size=batch_size)
     else:
         initial_fw_state, fw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
         initial_bw_state, bw_cell = build_lstm_cell(hidden_size, keep_prob=1, batch_size=batch_size)
