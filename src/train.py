@@ -5,7 +5,7 @@ import ciprian_data_prep_script
 import tfrecord_converter
 import argparse
 import time
-import datetime
+from datetime import datetime
 import os
 import utils
 import random
@@ -39,16 +39,20 @@ parser.add_argument("--restore", default=None, type=str, help="File path for the
 parser.add_argument("--log_folder", default=False, action="store_true", help="Whether to generate a folder with experimental results.")
 parser.add_argument("--num_iterations_hmn", default=4, type=int, help="The number of HMN decoding loops")
 
-parser.add_argument("--padding_mask", default=False, action="store_true", help="Whether to apply padding masks.")
+parser.add_argument("--padding_mask", default=True, action="store_true", help="Whether to apply padding masks.")
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
 
 parser.add_argument("--bi_lstm_dropout", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
 parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
 parser.add_argument("--q_tanh_dropout", default=False, action="store_true", help="Whether to use dropout after the question tanh.")
+parser.add_argument("--exp_name", default="", help="Name of current experiment, in form 'a.b'")
 
 
 ARGS = parser.parse_args()
 keep_probability = ARGS.keep_prob
+
+if ARGS.exp_name == "" and ARGS.test == False:
+    print("WARNING: no experiment name specified")
 
 if ARGS.test:
     print("Running in test mode")
@@ -215,11 +219,15 @@ tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
 
-time_now = datetime.datetime.now()
+#time_now = datetime.datetime.now()
+datetime_stamp = str(datetime.now()).split()[0][5:] + '_'+str(datetime.now().time()).split()[0][:-7]
+exp_dir_name = datetime_stamp if ARGS.exp_name == "" else ARGS.exp_name +'@'+datetime_stamp
 
 logFolder = ""
 if(ARGS.log_folder):
-    log_dir = os.path.join("/home/shared/logs", str(time_now).replace(':', '-').replace(' ', '_'))
+    #log_dir = os.path.join("/home/shared/logs", str(time_now).replace(':', '-').replace(' ', '_'))
+    log_dir = os.path.join("/home/shared/logs", exp_dir_name)
+    print(log_dir)
     orig_mask = os.umask(0)
     os.makedirs(log_dir, mode=0o777)
     os.umask(orig_mask)
@@ -280,8 +288,8 @@ fileEM.write("Hyperparameters:" + str(ARGS))
 
 param_file_path = os.path.join(log_dir, "params_used.txt")
 with open(param_file_path, "w") as param_file:
-    for key,val in vars(ARGS).items():
-        param_file.write(str(key) + ": " + str(val) + "\n")
+    for key in sorted(vars(ARGS).keys()):
+        param_file.write(str(key) + ": " + str(vars(ARGS)[key]) + "\n")
 os.chmod(param_file_path, 0o777)
 
 
@@ -419,21 +427,20 @@ with chosen_session as sess:
                     exact_matches += 1
                 running_f1 += best_f1_dp
 
-                if(dp_index_validation % 100 == 0):
-                    file.write("Question with ID: " + str(questions_ids_validation[dp_index_validation + i]))
-                    file.write("\n")
-                    file.write("Correct (start, end): " + str(all_answers_validation[dp_index_validation + i]))
-                    file.write("\n")
-                    file.write("Predicted (start, end): " + str((start_predict_validation[i], end_predict_validation[i])))
-                    file.write("\n")
-                    file.write("___________________________\n")
-                    file.flush()
+                file.write("Question with ID: " + str(questions_ids_validation[dp_index_validation + i]))
+                file.write("\n")
+                file.write("Correct (start, end): " + str(all_answers_validation[dp_index_validation + i]))
+                file.write("\n")
+                file.write("Predicted (start, end): " + str((start_predict_validation[i], end_predict_validation[i])))
+                file.write("\n")
+                file.write("___________________________\n")
+                file.flush()
 
-                    json_dp = {}
-                    json_dp["id"] = str(questions_ids_validation[dp_index_validation + i])
-                    json_dp["start"] = int(start_predict_validation[i])
-                    json_dp["end"] = int(end_predict_validation[i])
-                    json_predictions['pred'].append(json_dp)
+                json_dp = {}
+                json_dp["id"] = str(questions_ids_validation[dp_index_validation + i])
+                json_dp["start"] = int(start_predict_validation[i])
+                json_dp["end"] = int(end_predict_validation[i])
+                json_predictions['pred'].append(json_dp)
 
             if ARGS.test:
                 break
