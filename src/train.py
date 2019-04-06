@@ -135,6 +135,9 @@ with tf.variable_scope("decoder"):
     u_s = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size], tf.float32)  # Dummy guess start point
     u_e = tf.zeros([ARGS.batch_size, 2 * ARGS.hidden_size], tf.float32)  # Dummy guess end point
 
+    if ARGS.converge:
+        total_iteration_count = tf.zeros([1])
+
     with tf.variable_scope("decoding_loop"):
         for i in range(ARGS.num_iterations_hmn):
             # LSTM input is concatenation of previous guesses
@@ -199,6 +202,7 @@ with tf.variable_scope("decoder"):
                     e_prev = e
                     loss_mask = tf.logical_and(loss_mask, tf.logical_not(output_same))
                     masked_iteration_loss = tf.multiply(iteration_loss, tf.cast(loss_mask, tf.float32))
+                    total_iteration_count = total_iteration_count + tf.reduce_sum(tf.cast(loss_mask, tf.float32))
                     tf.summary.scalar('loss', tf.reduce_mean(iteration_loss))
                     tf.summary.scalar('masked_it_loss_summary', tf.reduce_mean(masked_iteration_loss))
 
@@ -214,7 +218,12 @@ with tf.variable_scope("decoder"):
 if not ARGS.converge:
     final_s = s
     final_e = e
-mean_loss = tf.reduce_mean(loss)
+    mean_loss = tf.reduce_mean(loss)
+else:
+    mean_loss_per_iteration_per_datapoint = tf.divide(tf.reduce_sum(loss), total_iteration_count)
+    # normalize to make it comparable to non-convergence variant
+    mean_loss = tf.multiply(mean_loss_per_iteration_per_datapoint, ARGS.num_iterations_hmn)
+    mean_loss = tf.reduce_mean(mean_loss) # convert shape from (1,) to ()
 tf.summary.scalar('total_loss', mean_loss)
 optimizer = tf.train.AdamOptimizer(ARGS.learning_rate)
 train_step = optimizer.minimize(mean_loss)
