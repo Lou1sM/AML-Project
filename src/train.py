@@ -23,7 +23,8 @@ import logging
 logging.getLogger('tensorflow').setLevel(50)
 
 prob = tf.placeholder_with_default(0.7, shape=())
-
+max_doc_len = tf.placeholder_with_default(600, shape=())
+max_que_len = tf.placeholder_with_default(60, shape=())
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_epochs", default=200, type=int, help="Number of epochs to train for")
 parser.add_argument("--test", "-t", default=False, action="store_true", help="Whether to run in test mode")
@@ -31,6 +32,8 @@ parser.add_argument("--batch_size", default=64, type=int, help="Size of each tra
 parser.add_argument("--dataset", choices=["SQuAD"],default="SQuAD", type=str, help="Dataset to train and evaluate on")
 parser.add_argument("--hidden_size", default=200, type=int, help="Size of the hidden state")
 parser.add_argument("--keep_prob", default=prob, type=float, help="Keep probability for question and document encodings.")
+parser.add_argument("--max_doc_len", default=max_doc_len, type=int, help="The maximum length of a padded document.")
+parser.add_argument("--max_que_len", default=max_que_len, type=int, help="The maximum length of a padded question.")
 parser.add_argument("--learning_rate", default=0.001, type=float, help="Learning rate.")
 parser.add_argument("--short_test", "-s", default=False, action="store_true", help="Whether to run in short test mode")
 parser.add_argument("--pool_size", default=16, type=int, help="Number of units to pool over in HMN sub-network")
@@ -49,7 +52,6 @@ parser.add_argument("--exp_name", default="", help="Name of current experiment, 
 
 
 ARGS = parser.parse_args()
-keep_probability = ARGS.keep_prob
 
 if ARGS.exp_name == "" and ARGS.test == False:
     print("WARNING: no experiment name specified")
@@ -73,12 +75,13 @@ with tf.variable_scope("data_prep"):
     start_l_validation = list(map(lambda x: x[0], ground_truth_labels_validation))
     end_l_validation = list(map(lambda x: x[1], ground_truth_labels_validation))
 
-    d = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_d_vecs[0]), len(input_d_vecs[0][0])])
-    q = tf.placeholder(tf.float64, [ARGS.batch_size, len(input_q_vecs[0]), len(input_q_vecs[0][0])])
+    d = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_d_vecs[0][0])])
+    q = tf.placeholder(tf.float64, [ARGS.batch_size, None, len(input_q_vecs[0][0])])
     starting_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     ending_labels = tf.placeholder(tf.int64, [ARGS.batch_size])
     doc_l = tf.placeholder(tf.int64, [ARGS.batch_size])
     que_l = tf.placeholder(tf.int64, [ARGS.batch_size])
+
 
 with tf.variable_scope("performance_metrics"):
     em_score_log = tf.placeholder(tf.float32, ())
@@ -107,13 +110,13 @@ with tf.variable_scope("encoder"):
     #end_labels = tf.one_hot(a[:,1], 600)
 
     # Create single nodes for labels, feed_dict version
-    start_labels = tf.one_hot(starting_labels, 600)
-    end_labels = tf.one_hot(ending_labels, 600)
+    start_labels = tf.one_hot(starting_labels, max_doc_len)
+    end_labels = tf.one_hot(ending_labels, max_doc_len)
 
 with tf.variable_scope("decoder"):
     # Calculate padding mask
     if ARGS.padding_mask:
-        after_padding_mark = tf.one_hot(doc_l, 600)
+        after_padding_mark = tf.one_hot(doc_l, max_doc_len)
         padding_mask = tf.math.cumsum(after_padding_mark, axis=1)
         min_float_at_padding = tf.multiply(padding_mask, tf.cast(0.5*tf.float32.min, tf.float32))
 
@@ -351,13 +354,25 @@ with chosen_session as sess:
             if dp_index + batch_size > dataset_length:
                 break
             #batch_time = time.time()
+
+            doc = list.copy(list(input_d_vecs[dp_index:dp_index + batch_size]))
+            que = list.copy(list(input_q_vecs[dp_index:dp_index + batch_size]))
+            doc_len = documents_lengths[dp_index: dp_index + batch_size]
+            que_len = questions_lengths[dp_index: dp_index + batch_size]
+            batch_doc_len = max(doc_len)
+            batch_que_len = max(que_len)
+            doc = [elem[:batch_doc_len] for elem in doc]
+            que = [elem[:batch_que_len] for elem in que]
+
             feed_dict = {
-                d: input_d_vecs[dp_index:dp_index + batch_size],
-                q: input_q_vecs[dp_index: dp_index + batch_size],
+                max_doc_len: batch_doc_len,
+                max_que_len: batch_que_len,
+                d: doc,
+                q: que,
                 starting_labels: start_l[dp_index: dp_index + batch_size],
                 ending_labels: end_l[dp_index: dp_index + batch_size],
-                doc_l: documents_lengths[dp_index: dp_index + batch_size],
-                que_l: questions_lengths[dp_index: dp_index + batch_size],
+                doc_l: doc_len,
+                que_l: que_len,
                 f1_score_log: new_avg_f1,
                 em_score_log: new_em_score
                 }
@@ -387,6 +402,10 @@ with chosen_session as sess:
                 sess.run([train_step], feed_dict=feed_dict)
 
             global_batch_num += 1
+            del(doc)
+            del(que)
+            del(doc_len)
+            del(que_len)
 
             #print(time.time()-batch_time)
             if ARGS.test:

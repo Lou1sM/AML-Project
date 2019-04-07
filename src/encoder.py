@@ -98,8 +98,8 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     if hyperparameters.padding_mask:
         document_end_indices = tf.subtract(documents_lengths, 1)
         question_end_indices = tf.subtract(questions_lengths, 1)
-        doc_words_mask = tf.math.cumsum(tf.one_hot(document_end_indices, 600), axis=1, reverse=True)
-        que_words_mask = tf.math.cumsum(tf.one_hot(question_end_indices, 60), axis=1, reverse=True)
+        doc_words_mask = tf.math.cumsum(tf.one_hot(document_end_indices, hyperparameters.max_doc_len), axis=1, reverse=True)
+        que_words_mask = tf.math.cumsum(tf.one_hot(question_end_indices, hyperparameters.max_que_len), axis=1, reverse=True)
         # add sentinels
         sentinel_mask = tf.ones([hyperparameters.batch_size, 1])
         doc_words_mask = tf.concat([doc_words_mask, sentinel_mask], axis=1)
