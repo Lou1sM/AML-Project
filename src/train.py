@@ -426,15 +426,26 @@ with chosen_session as sess:
             if dp_index_validation + ARGS.batch_size >= len(input_d_vecs_validation):
                 break
 
+            doc = list.copy(list(input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size]))
+            que = list.copy(list(input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]))
+            doc_len = documents_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
+            que_len = questions_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
+            batch_doc_len = max(doc_len)
+            batch_que_len = max(que_len)
+            doc = [elem[:batch_doc_len] for elem in doc]
+            que = [elem[:batch_que_len] for elem in que]
+
             feed_dict_validation = {
                 prob: 1,
-                d: input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size],
-                q: input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
+                max_doc_len: batch_doc_len,
+                max_que_len: batch_que_len,
+                d: doc,
+                q: que,
                 starting_labels: start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
                 ending_labels: end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
-                doc_l: documents_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
-                que_l: questions_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
-                }
+                doc_l: doc_len,
+                que_l: que_len
+            }
 
             loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, final_s, final_e], feed_dict = feed_dict_validation)
             start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
@@ -469,6 +480,12 @@ with chosen_session as sess:
                 json_dp["start"] = int(start_predict_validation[i])
                 json_dp["end"] = int(end_predict_validation[i])
                 json_predictions['pred'].append(json_dp)
+
+
+            del(doc)
+            del(que)
+            del(doc_len)
+            del(que_len)
 
             if ARGS.test:
                 break
