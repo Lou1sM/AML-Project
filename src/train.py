@@ -178,7 +178,7 @@ with tf.variable_scope("decoder"):
                     name="HMN_end"
                 )
 
-           if ARGS.padding_mask:
+            if ARGS.padding_mask:
                 betas = tf.add(betas, min_float_at_padding)
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_encoding_indices = tf.transpose(tf.stack([batch_indices, e]))
