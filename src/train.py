@@ -161,6 +161,12 @@ with tf.variable_scope("decoder"):
                     name="HMN_start"
                 )
 
+            if ARGS.padding_mask:
+                alphas = tf.add(alphas, min_float_at_padding)
+            s = tf.argmax(alphas, axis=1, output_type=tf.int32)
+            s_encoding_indices = tf.transpose(tf.stack([batch_indices, s]))
+            u_s = tf.gather_nd(encoded, s_encoding_indices)
+ 
             with tf.variable_scope('end_estimator'):
                 betas = highway_max_out.HMN(
                     current_words=encoded,
@@ -172,13 +178,7 @@ with tf.variable_scope("decoder"):
                     name="HMN_end"
                 )
 
-            if ARGS.padding_mask:
-                alphas = tf.add(alphas, min_float_at_padding)
-            s = tf.argmax(alphas, axis=1, output_type=tf.int32)
-            s_encoding_indices = tf.transpose(tf.stack([batch_indices, s]))
-            u_s = tf.gather_nd(encoded, s_encoding_indices)
-
-            if ARGS.padding_mask:
+           if ARGS.padding_mask:
                 betas = tf.add(betas, min_float_at_padding)
             e = tf.argmax(betas, axis=1, output_type=tf.int32)
             e_encoding_indices = tf.transpose(tf.stack([batch_indices, e]))
