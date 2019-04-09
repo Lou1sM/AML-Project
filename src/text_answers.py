@@ -71,18 +71,20 @@ def process_actual_answers(predicted_dev_json_filename = default_predicted_dev_j
         out_file.write("Correct answers: " + str(correct_answers) + "\n")
         out_file.write("Model prediction: " + str(pred_answer) + "\n")
 
-        out_file.write("\n_______________________________________________________\n")
-        out_file.flush()
-
-        ok = 0
+        pred_is_correct = False
         for correct_answer in correct_answers:
         	tokenized_correct_answer = nltk.word_tokenize(correct_answer)
         	if(tokenized_correct_answer == pred_answer):
-        		ok = 1
+        		pred_is_correct = True
+                break
+        if pred_is_correct:
+            correct_predictions += 1.0
+            out_file.write("Verdict: Correct\n")
+        else:
+            out_file.write("Verdict: Wrong\n")
 
-        if(ok == 1):
-        	correct_predictions += 1.0
-
+        out_file.write("\n_______________________________________________________\n")
+        out_file.flush()
 
     print("EM SCORE: ", correct_predictions / total_count)
     out_file.write("Correct count: " + str(correct_predictions) + "\n")
