@@ -2,11 +2,17 @@ import json
 import numpy as np
 import nltk 
 import datetime
+import argparse
 
 dev_json_filename = 'data/squad/dev-v1.1.json'
 default_predicted_dev_json_filename = 'predictions_epoch_2.json'
-
 default_additional_text = ''
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--file_name", default=default_predicted_dev_json_filename, type=str, help="Json predictions file name")
+ARGS = parser.parse_args()
+
+file_name = ARGS.file_name
 
 time_now = datetime.datetime.now()
 out_file_name = "compare_predicted" + str(time_now) + ".txt"
@@ -73,9 +79,9 @@ def process_actual_answers(predicted_dev_json_filename = default_predicted_dev_j
 
         pred_is_correct = False
         for correct_answer in correct_answers:
-        	tokenized_correct_answer = nltk.word_tokenize(correct_answer)
-        	if(tokenized_correct_answer == pred_answer):
-        		pred_is_correct = True
+            tokenized_correct_answer = nltk.word_tokenize(correct_answer)
+            if(tokenized_correct_answer == pred_answer):
+                pred_is_correct = True
                 break
         if pred_is_correct:
             correct_predictions += 1.0
@@ -95,4 +101,4 @@ def process_actual_answers(predicted_dev_json_filename = default_predicted_dev_j
 
 
 
-process_actual_answers()
+process_actual_answers(predicted_dev_json_filename = file_name)
