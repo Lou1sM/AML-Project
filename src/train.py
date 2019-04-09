@@ -415,6 +415,7 @@ with chosen_session as sess:
         epoch_loss = 10*epoch_loss/(int(dataset_length/batch_size))
         total_count = 0.1
         exact_matches = 0.1
+        num_just_start_right = 0.1
         running_f1 = 0.1
 
         total_epoch_val_loss = 0.0
@@ -463,6 +464,8 @@ with chosen_session as sess:
                         best_f1_dp = new_f1_dp
                     if ans == [start_predict_validation[i], end_predict_validation[i]]:
                         got_exact_match = True
+                    elif ans[0] == start_predict_validation[i]:
+                        num_just_start_right += 1
                 if got_exact_match:
                     exact_matches += 1
                 running_f1 += best_f1_dp
@@ -493,6 +496,7 @@ with chosen_session as sess:
         total_epoch_val_loss = total_epoch_val_loss/(int(dataset_length_validation/batch_size))
         new_em_score = exact_matches / total_count
         new_avg_f1 = running_f1 / total_count
+        frac_just_start_right = num_just_start_right / total_count
         if new_avg_f1 > best_avg_f1:
             best_avg_f1 = new_avg_f1
 
@@ -510,6 +514,7 @@ with chosen_session as sess:
             fileEM.write("\nEpoch number:" + str(epoch))
             fileEM.write("\n")
             fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
+            fileEM.write("\nFraction with just start prediction correct: {}".format(frac_just_start_right))
             fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
             #fileEM.write("\n")
             fileEM.write("\nEpoch loss value:" + str(epoch_loss))
