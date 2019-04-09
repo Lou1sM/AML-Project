@@ -7,10 +7,7 @@ from utils import bias_variable, variable_summaries
 # meanwhile, the classic tf.nn.dynamic_rnn supports adding a vector of batch_size elements, each
 # describing the length of the documents/questions to process.
 
-# Provide hyperparameters to functions below as dictionary with keys "hidden_size", "keep_prob", "batch_size"
-
 def build_lstm_cell(hidden_size = 200, keep_prob = 1, batch_size = 10, use_dropout = True):
-    # lstm = tf.contrib.rnn.BasicLSTMCell(hidden_size) # deprecated
     lstm = tf.nn.rnn_cell.LSTMCell(name='basic_lstm_cell', num_units = hidden_size)
     if use_dropout:
         cell = tf.contrib.rnn.DropoutWrapper(lstm, output_keep_prob = keep_prob)
@@ -57,9 +54,9 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
     # Data needs to come padded, also need the length 
     hidden_size = hyperparameters.hidden_size
     with tf.variable_scope('lstm', reuse = tf.AUTO_REUSE) as scope:
-        document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters)
+        document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters, use_dropout = hyperparameters.doc_lstm_dropout)
         # No dropout for when questions pass
-        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters, use_dropout=hyperparameters.q_lstm_dropout)
+        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters, use_dropout = hyperparameters.q_lstm_dropout)
     with tf.variable_scope('tanhlayer') as scope:
         linear_model = tf.layers.Dense(units = hidden_size)
         question_enc = tf.math.tanh(linear_model(que_lstm_outputs))
@@ -68,11 +65,6 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
             question_enc = tf.nn.dropout(question_enc, keep_prob=hyperparameters.keep_prob)
  
     return document_enc, question_enc
-
-# Once we agree on shapes, use code below to write tensor as vector
-# of length timesteps, with 2D tensors as elements:
-# x=tf.placeholder("float",[None,time_steps,n_input])
-# input=tf.unstack(x ,time_steps,1)
 
 def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters):
     # D[i] = document i in the batch, Q[i] = question i in the batch
@@ -92,8 +84,6 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
         tiled_sentinel_q = tf.tile(expanded_sentinel_q, [hyperparameters.batch_size, 1, 1])
         Q = tf.concat([Q, tiled_sentinel_q], axis=1)
 
-    #print('D', D.shape)
-    #print('Q', Q.shape)
     L = tf.matmul(D, tf.transpose(Q, perm = [0,2,1]))
     if hyperparameters.padding_mask:
         document_end_indices = tf.subtract(documents_lengths, 1)
@@ -109,7 +99,6 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
         min_float_at_padding = tf.multiply(negative_padding_mask, tf.cast(-0.5*tf.float32.min, tf.float32))
         L = tf.add(L, min_float_at_padding)
 
-    #print('L', L.shape)
     A_Q = tf.nn.softmax(L, axis=1, name="softmaxed_L")
     A_D = tf.nn.softmax(tf.transpose(L, perm = [0,2,1]), axis=1, name="softmaxed_L_transpose")
     C_Q = tf.matmul(tf.transpose(D, perm = [0,2,1]), A_Q)

@@ -46,6 +46,7 @@ parser.add_argument("--padding_mask", default=True, action="store_true", help="W
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
 
 parser.add_argument("--bi_lstm_dropout", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
+parser.add_argument("--doc_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the document lstm.")
 parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
 parser.add_argument("--q_tanh_dropout", default=False, action="store_true", help="Whether to use dropout after the question tanh.")
 parser.add_argument("--exp_name", default="", help="Name of current experiment, in form 'a.b'")
