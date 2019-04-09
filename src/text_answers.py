@@ -3,6 +3,8 @@ import numpy as np
 import nltk 
 import datetime
 import argparse
+import string
+import os
 
 dev_json_filename = 'data/squad/dev-v1.1.json'
 default_predicted_dev_json_filename = 'predictions_epoch_2.json'
@@ -26,6 +28,15 @@ def load_data(filename):
 
 total_count = 0.1
 correct_predictions = 0.1
+
+codalab_evaluation_data = {}
+experiment_json_name = ""
+codalab_json_filename = experiment_json_name + "codalab.json"
+
+json_file_path = os.path.join("", codalab_json_filename)
+jsonFile = open(json_file_path, "w")
+
+pct = set(string.punctuation)
 
 def process_actual_answers(predicted_dev_json_filename = default_predicted_dev_json_filename, additional_text = default_additional_text):
     global total_count
@@ -68,6 +79,18 @@ def process_actual_answers(predicted_dev_json_filename = default_predicted_dev_j
         pred_answer = tokenized_pred_paragraph[pred_start : pred_end + 1]
         correct_answers = qid_to_answers[pred_qid]
 
+        pred_string = ""
+        for token in pred_answer:
+            if token == ',' or token == '.' or token ==';' or token == ':':
+                token_space = token
+            else:
+                token_space = " " + token
+            pred_string = pred_string + token_space
+
+        pred_string = pred_string[1:]
+
+        codalab_evaluation_data[pred_qid] = pred_string
+
         out_file.write("\n_______________________________________________________\n")
 
         out_file.write("Question ID: " + str(pred_qid) + "\n")
@@ -78,9 +101,18 @@ def process_actual_answers(predicted_dev_json_filename = default_predicted_dev_j
         out_file.write("Model prediction: " + str(pred_answer) + "\n")
 
         pred_is_correct = False
+        new_pred_answer = []
+        for token in pred_answer:
+                if token not in pct and token.lower() != "the" and token.lower() != "a" and token.lower!="an":
+                    new_pred_answer.append(token)
+
         for correct_answer in correct_answers:
             tokenized_correct_answer = nltk.word_tokenize(correct_answer)
-            if(tokenized_correct_answer == pred_answer):
+            new_tokenized_correct_answer = []
+            for token in tokenized_correct_answer:
+                if token not in pct and token.lower() != "the" and token.lower() != "a" and token.lower!="an":
+                    new_tokenized_correct_answer.append(token)
+            if(new_pred_answer == new_tokenized_correct_answer):
                 pred_is_correct = True
                 break
         if pred_is_correct:
@@ -98,6 +130,10 @@ def process_actual_answers(predicted_dev_json_filename = default_predicted_dev_j
     out_file.write("EM SCORE: " + str(correct_predictions / total_count))
     out_file.write("\n")
     out_file.close()
+
+    json.dump(codalab_evaluation_data, jsonFile)
+    jsonFile.close()
+
 
 
 
