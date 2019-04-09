@@ -332,17 +332,9 @@ with chosen_session as sess:
     new_em_score = 0
     for epoch in range(ARGS.num_epochs):
 
-        json_predictions = {}
-        json_predictions['epoch'] = int(epoch)
-        json_predictions['pred'] = []
-
-        jsonFileName = "predictions_epoch_" + str(epoch) + ".json"
-        #jsonFile = open(logDirectory + jsonFileName, "w")
-        json_file_path = os.path.join(log_dir, jsonFileName)
-        jsonFile = open(json_file_path, "w")
-
         print("\nEpoch:", epoch)
-        file.write("\nEpoch: " + str(epoch) + "\n")
+        partial_epoch = ""
+        file.write("\nEpoch: " + str(epoch) + partial_epoch + "\n")
 
         batch_size = ARGS.batch_size
         shuffling = list(zip(input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths))
@@ -354,7 +346,146 @@ with chosen_session as sess:
         for dp_index in range(0, dataset_length, batch_size):
             if dp_index + batch_size > dataset_length:
                 break
-            #batch_time = time.time()
+
+            run_validation = False
+
+            if dp_index + 2 * batch_size > dataset_length:
+                partial_epoch = ".2"
+                run_validation = True
+
+            if dp_index//batch_size == 2*num_batchs //3:
+                run_validation = True
+                partial_epoch = ".1"
+
+            if dp_index//batch_size == num_batchs //3:
+                run_validation = True
+                partial_epoch = ".0"
+
+            if run_validation:
+                json_predictions = {}
+                json_predictions['epoch'] = str(epoch) + partial_epoch
+                json_predictions['pred'] = []
+
+                jsonFileName = "predictions_epoch_" + str(epoch) + partial_epoch + ".json"
+                json_file_path = os.path.join(log_dir, jsonFileName)
+                jsonFile = open(json_file_path, "w")
+
+                total_count = 0.1
+                exact_matches = 0.1
+                num_just_start_right = 0.1
+                running_f1 = 0.1
+
+                total_epoch_val_loss = 0.0
+
+                for dp_index_validation in range(0, dataset_length_validation, ARGS.batch_size):
+                    if(dp_index_validation % 500 == 0):
+                        print("Validation Batch: ", dp_index_validation, "\n")
+                        file.write("Validation Batch: " + str(dp_index_validation) + "\n")
+                        file.flush()
+                    if dp_index_validation + ARGS.batch_size >= len(input_d_vecs_validation):
+                        break
+
+                    doc = list.copy(list(input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size]))
+                    que = list.copy(list(input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]))
+                    doc_len = documents_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
+                    que_len = questions_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
+                    batch_doc_len = max(doc_len)
+                    batch_que_len = max(que_len)
+                    doc = [elem[:batch_doc_len] for elem in doc]
+                    que = [elem[:batch_que_len] for elem in que]
+
+                    feed_dict_validation = {
+                        prob: 1,
+                        max_doc_len: batch_doc_len,
+                        max_que_len: batch_que_len,
+                        d: doc,
+                        q: que,
+                        starting_labels: start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
+                        ending_labels: end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
+                        doc_l: doc_len,
+                        que_l: que_len
+                    }
+
+                    loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, final_s, final_e], feed_dict = feed_dict_validation)
+                    start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
+                    end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
+
+                    total_epoch_val_loss += loss_val_validation
+                    for i in range(ARGS.batch_size):
+                        total_count += 1.0
+                        got_exact_match = False
+                        best_f1_dp = 0.0
+                        for ans in all_answers_validation[dp_index_validation + i]:
+                            new_f1_dp = utils.compute_f1_from_indices(start_predict_validation[i], end_predict_validation[i], ans[0], ans[1])
+                            if new_f1_dp > best_f1_dp:
+                                best_f1_dp = new_f1_dp
+                            if ans == [start_predict_validation[i], end_predict_validation[i]]:
+                                got_exact_match = True
+                            elif ans[0] == start_predict_validation[i]:
+                                num_just_start_right += 1
+                        if got_exact_match:
+                            exact_matches += 1
+                        running_f1 += best_f1_dp
+
+                        file.write("Question with ID: " + str(questions_ids_validation[dp_index_validation + i]))
+                        file.write("\n")
+                        file.write("Correct (start, end): " + str(all_answers_validation[dp_index_validation + i]))
+                        file.write("\n")
+                        file.write("Predicted (start, end): " + str((start_predict_validation[i], end_predict_validation[i])))
+                        file.write("\n")
+                        file.write("___________________________\n")
+                        file.flush()
+
+                        json_dp = {}
+                        json_dp["id"] = str(questions_ids_validation[dp_index_validation + i])
+                        json_dp["start"] = int(start_predict_validation[i])
+                        json_dp["end"] = int(end_predict_validation[i])
+                        json_predictions['pred'].append(json_dp)
+
+
+                    del(doc)
+                    del(que)
+                    del(doc_len)
+                    del(que_len)
+
+                    if ARGS.test:
+                        break
+                total_epoch_val_loss = total_epoch_val_loss/(int(dataset_length_validation/batch_size))
+                new_em_score = exact_matches / total_count
+                new_avg_f1 = running_f1 / total_count
+                frac_just_start_right = num_just_start_right / total_count
+                if new_avg_f1 > best_avg_f1:
+                    best_avg_f1 = new_avg_f1
+
+                print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
+                json.dump(json_predictions, jsonFile)
+                jsonFile.close()
+
+                os.chmod(json_file_path, 0o777)
+                if new_em_score > best_em_score:
+                    save_path = saver.save(sess, os.path.join(checkpoint_dir, "model{}".format(epoch)+partial_epoch+".ckpt"))
+                    print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
+                    print("Epoch validation loss: %f" % total_epoch_val_loss)
+                    fileEM.write("\nEpoch number:" + str(epoch) + partial_epoch)
+                    fileEM.write("\n")
+                    fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
+                    fileEM.write("\nFraction with just start prediction correct: {}".format(frac_just_start_right))
+                    fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
+                    fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+                    fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
+                    fileEM.write("\n\n")
+                    fileEM.flush()
+                    best_em_score = new_em_score 
+                else:
+                    print("No improvement in EM score, not saving")
+                    fileEM.write("Epoch number:" + str(epoch) + partial_epoch)
+                    fileEM.write("\n")
+                    fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". No improvement, model not saved.")
+                    fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
+                    fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+                    fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
+                    fileEM.write("\n\n")
+                    fileEM.flush()
 
             doc = list.copy(list(input_d_vecs[dp_index:dp_index + batch_size]))
             que = list.copy(list(input_q_vecs[dp_index:dp_index + batch_size]))
@@ -378,19 +509,6 @@ with chosen_session as sess:
                 em_score_log: new_em_score
                 }
 
-            '''
-            invalid_batch = False
-            for bi in range(0, batch_size):
-                answer_end_index = feed_dict[ending_labels][bi]
-                document_length = feed_dict[doc_l][bi]
-                if not answer_end_index < document_length:
-                    invalid_batch = True
-                    break
-            if invalid_batch:
-                print("Batch with invalid datapoint encounterd, skipping...")
-                continue
-            '''
-
             if (dp_index//batch_size + 1)% 10 == 0: #or batch_size == dataset_length-batch_num:
                 _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
                 dp_time = (time.time() - prev_time)/(10.0*batch_size)
@@ -413,126 +531,6 @@ with chosen_session as sess:
                 break
 
         epoch_loss = 10*epoch_loss/(int(dataset_length/batch_size))
-        total_count = 0.1
-        exact_matches = 0.1
-        num_just_start_right = 0.1
-        running_f1 = 0.1
-
-        total_epoch_val_loss = 0.0
-
-        for dp_index_validation in range(0, dataset_length_validation, ARGS.batch_size):
-            if(dp_index_validation % 500 == 0):
-                print("Validation Batch: ", dp_index_validation, "\n")
-                file.write("Validation Batch: " + str(dp_index_validation) + "\n")
-                file.flush()
-            if dp_index_validation + ARGS.batch_size >= len(input_d_vecs_validation):
-                break
-
-            doc = list.copy(list(input_d_vecs_validation[dp_index_validation:dp_index_validation + ARGS.batch_size]))
-            que = list.copy(list(input_q_vecs_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]))
-            doc_len = documents_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
-            que_len = questions_lengths_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
-            batch_doc_len = max(doc_len)
-            batch_que_len = max(que_len)
-            doc = [elem[:batch_doc_len] for elem in doc]
-            que = [elem[:batch_que_len] for elem in que]
-
-            feed_dict_validation = {
-                prob: 1,
-                max_doc_len: batch_doc_len,
-                max_que_len: batch_que_len,
-                d: doc,
-                q: que,
-                starting_labels: start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
-                ending_labels: end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size],
-                doc_l: doc_len,
-                que_l: que_len
-            }
-
-            loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, final_s, final_e], feed_dict = feed_dict_validation)
-            start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
-            end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
-
-            total_epoch_val_loss += loss_val_validation
-            for i in range(ARGS.batch_size):
-                total_count += 1.0
-                got_exact_match = False
-                best_f1_dp = 0.0
-                for ans in all_answers_validation[dp_index_validation + i]:
-                    new_f1_dp = utils.compute_f1_from_indices(start_predict_validation[i], end_predict_validation[i], ans[0], ans[1])
-                    if new_f1_dp > best_f1_dp:
-                        best_f1_dp = new_f1_dp
-                    if ans == [start_predict_validation[i], end_predict_validation[i]]:
-                        got_exact_match = True
-                    elif ans[0] == start_predict_validation[i]:
-                        num_just_start_right += 1
-                if got_exact_match:
-                    exact_matches += 1
-                running_f1 += best_f1_dp
-
-                file.write("Question with ID: " + str(questions_ids_validation[dp_index_validation + i]))
-                file.write("\n")
-                file.write("Correct (start, end): " + str(all_answers_validation[dp_index_validation + i]))
-                file.write("\n")
-                file.write("Predicted (start, end): " + str((start_predict_validation[i], end_predict_validation[i])))
-                file.write("\n")
-                file.write("___________________________\n")
-                file.flush()
-
-                json_dp = {}
-                json_dp["id"] = str(questions_ids_validation[dp_index_validation + i])
-                json_dp["start"] = int(start_predict_validation[i])
-                json_dp["end"] = int(end_predict_validation[i])
-                json_predictions['pred'].append(json_dp)
-
-
-            del(doc)
-            del(que)
-            del(doc_len)
-            del(que_len)
-
-            if ARGS.test:
-                break
-        total_epoch_val_loss = total_epoch_val_loss/(int(dataset_length_validation/batch_size))
-        new_em_score = exact_matches / total_count
-        new_avg_f1 = running_f1 / total_count
-        frac_just_start_right = num_just_start_right / total_count
-        if new_avg_f1 > best_avg_f1:
-            best_avg_f1 = new_avg_f1
-
-        print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
-        json.dump(json_predictions, jsonFile)
-        jsonFile.close()
-
-        os.chmod(json_file_path, 0o777)
-        if new_em_score > best_em_score:
-            #save_path = saver.save(sess, "checkpoints/model.ckpt")
-            #save_path = saver.save(sess, logFolder + "checkpoints/model{}.ckpt".format(epoch))
-            save_path = saver.save(sess, os.path.join(checkpoint_dir, "model{}.ckpt".format(epoch)))
-            print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
-            print("Epoch validation loss: %f" % total_epoch_val_loss)
-            fileEM.write("\nEpoch number:" + str(epoch))
-            fileEM.write("\n")
-            fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
-            fileEM.write("\nFraction with just start prediction correct: {}".format(frac_just_start_right))
-            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
-            #fileEM.write("\n")
-            fileEM.write("\nEpoch loss value:" + str(epoch_loss))
-            fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
-            fileEM.write("\n\n")
-            fileEM.flush()
-            best_em_score = new_em_score 
-        else:
-            print("No improvement in EM score, not saving")
-            fileEM.write("Epoch number:" + str(epoch))
-            fileEM.write("\n")
-            fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". No improvement, model not saved.")
-            fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
-            #fileEM.write("\n")
-            fileEM.write("\nEpoch loss value:" + str(epoch_loss))
-            fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
-            fileEM.write("\n\n")
-            fileEM.flush()
  
 train_end_time = time.time()
 
@@ -540,61 +538,3 @@ train_loss_scores, val_loss_scores = log_reader.get_train_val_scores(logEM_file_
 loss_graph_file_path = os.path.join(log_dir, 'train_val_loss.png')
 log_reader.plot_losses(train_losses=train_loss_scores, val_losses=val_loss_scores, filepath=loss_graph_file_path)
 print("Train time", utils.time_format(train_end_time - train_start_time))
-"""
-with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
-    train_start_time = time.time()
-    print("Graph-build time: ", utils.time_format(train_start_time - start_time))
-    for i in range(ARGS.num_epochs):
-        sess.run(train_init_op)
-        profileFirstBatch = False
-        while True:
-            try:
-                if profileFirstBatch:
-                    profileFirstBatch = False
-                    options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-                    run_metadata = tf.RunMetadata()
-
-                    summary, _, loss_val = sess.run([merged, train_step, mean_loss],
-                                                    options=options,
-                                                    run_metadata=run_metadata)
-
-                    fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-                    chrome_trace = fetched_timeline.generate_chrome_trace_format()
-                    with open('profiling_timeline.json', 'w') as f:
-                        f.write(chrome_trace)
-                else:
-                    summary, _, loss_val = sess.run([merged, train_step, mean_loss])
-                    print(loss_val)
-                    if ARGS.test:
-                        break
-            except tf.errors.OutOfRangeError:
-                writer.add_summary(summary, i)
-                if ARGS.validate:
-                    print('\nComputing validiation loss:')
-                    sess.run(val_init_op)
-                    new_loss_val = 0
-                    while True:
-                        try:
-                            new_loss_val += sess.run(mean_loss)
-                        except tf.errors.OutOfRangeError:
-                            print(new_loss_val)
-                            if new_loss_val < best_loss_val or best_loss_val == -1:
-                                best_loss_val = new_loss_val
-                                save_path = saver.save(sess, "/home/shared/checkpoints/model.ckpt")
-                                print("Model saved in path: %s" % save_path)
-                            else:
-                                print("No improvement in loss, not saving")
-                                tolerance -= 1
-                            break
-                break           
-
-        if tolerance == 0:
-            print('Tolerance threshold reached, early-stopping')
-            break
-
-    train_end_time = time.time()
-
-    print("Train time", utils.time_format(train_end_time - train_start_time))
-
-"""
