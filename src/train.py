@@ -314,7 +314,8 @@ with chosen_session as sess:
     if ARGS.restore == None:
         sess.run(tf.global_variables_initializer())
     else:
-        restore_path = saver.restore(sess, os.path.join(checkpoint_dir, ARGS.restore))
+        #restore_path = saver.restore(sess, os.path.join(checkpoint_dir, ARGS.restore))
+        restore_path = saver.restore(sess, ARGS.restore)
         print("Restoring from checkpoint at", restore_path)
     train_start_time = time.time()
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
@@ -370,10 +371,21 @@ with chosen_session as sess:
                 json_file_path = os.path.join(log_dir, jsonFileName)
                 jsonFile = open(json_file_path, "w")
 
+                json_predictions_outer_prod = {}
+                json_predictions_outer_prod ['epoch'] = str(epoch) + partial_epoch
+                json_predictions_outer_prod ['pred'] = []
+
+                jsonFileName_outer_prod  = "predictions_outer_prod_epoch_" + str(epoch) + partial_epoch + ".json"
+                json_file_path_outer_prod  = os.path.join(log_dir, jsonFileName_outer_prod )
+                jsonFile_outer_prod  = open(json_file_path_outer_prod , "w")
+
                 total_count = 0.1
                 exact_matches = 0.1
+                exact_matches1_outer_prod  = 0.1
                 num_just_start_right = 0.1
+                num_just_start_right_outer_prod = 0.1
                 running_f1 = 0.1
+                running_f1_outer_prod = 0.1
 
                 total_epoch_val_loss = 0.0
 
@@ -406,7 +418,17 @@ with chosen_session as sess:
                         que_l: que_len
                     }
 
-                    loss_val_validation, start_predict_validation, end_predict_validation = sess.run([mean_loss, final_s, final_e], feed_dict = feed_dict_validation)
+                    loss_val_validation, start_predict_validation, end_predict_validation, alphas_val, betas_val = sess.run([mean_loss, final_s, final_e, alphas, betas], feed_dict = feed_dict_validation)
+                    #alphas_sftmx = np.divide(np.exp(alphas),np.sum(np.exp(alphas), axis=1)[:,np.newaxis])
+                    #betas_sftmx = np.divide(np.exp(betas),np.sum(np.exp(betas), axis=1)[:,np.newaxis])
+
+                    alphas_exp = np.exp(alphas)
+                    betas_exp = np.exp(betas)
+                    alphas_betas = np.matmul(np.expand_dims(alphas_exp, 2), np.expand_dims(betas_exp, 1))
+                    alphas_betas = np.triu(alphas_betas)
+                    outer_prod_start_predict_validation = np.argmax(np.amax(alphas_betas, axis=2), axis=1)
+                    outer_prod_end_predict_validation = np.argmax(np.amax(alphas_betas, axis=1), axis=1)
+
                     start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
                     end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
 
@@ -414,18 +436,31 @@ with chosen_session as sess:
                     for i in range(ARGS.batch_size):
                         total_count += 1.0
                         got_exact_match = False
+                        got_exact_match_outer_prod = False
                         best_f1_dp = 0.0
+                        best_f1_dp_outer_prod  = 0.0
                         for ans in all_answers_validation[dp_index_validation + i]:
                             new_f1_dp = utils.compute_f1_from_indices(start_predict_validation[i], end_predict_validation[i], ans[0], ans[1])
+                            new_f1_dp_outer_prod  = utils.compute_f1_from_indices(start_predict_validation_outer_prod [i], end_predict_validation_outer_prod [i], ans[0], ans[1])
                             if new_f1_dp > best_f1_dp:
                                 best_f1_dp = new_f1_dp
                             if ans == [start_predict_validation[i], end_predict_validation[i]]:
                                 got_exact_match = True
                             elif ans[0] == start_predict_validation[i]:
                                 num_just_start_right += 1
+                            if new_f1_dp_outer_prod  > best_f1_dp_outer_prod :
+                                best_f1_dp_outer_prod  = new_f1_dp_outer_prod 
+                            if ans == [start_predict_validation_outer_prod [i], end_predict_validation_outer_prod [i]]:
+                                got_exact_match_outer_prod  = True
+                            elif ans[0] == start_predict_validation_outer_prod[i]:
+                                num_just_start_right_outer_prod += 1
                         if got_exact_match:
                             exact_matches += 1
                         running_f1 += best_f1_dp
+                        if got_exact_match_outer_prod :
+                            exact_matches_outer_prod  += 1
+                        running_f1_outer_prod  += best_f1_dp_outer_prod 
+
 
                         file.write("Question with ID: " + str(questions_ids_validation[dp_index_validation + i]))
                         file.write("\n")
@@ -442,6 +477,13 @@ with chosen_session as sess:
                         json_dp["end"] = int(end_predict_validation[i])
                         json_predictions['pred'].append(json_dp)
 
+                        json_dp_outer_prod  = {}
+                        json_dp_outer_prod ["id"] = str(questions_ids_validation[dp_index_validation + i])
+                        json_dp_outer_prod ["start"] = int(start_predict_validation_outer_prod [i])
+                        json_dp_outer_prod ["end"] = int(end_predict_validation_outer_prod [i])
+                        json_predictions_outer_prod['pred'].append(json_dp_outer_prod )
+
+_
 
                     del(doc)
                     del(que)
@@ -457,11 +499,23 @@ with chosen_session as sess:
                 if new_avg_f1 > best_avg_f1:
                     best_avg_f1 = new_avg_f1
 
+                new_em_score_outer_prod = exact_matches_outer_prod  / total_count
+                new_avg_f1_outer_prod  = running_f1_outer_prod  / total_count
+                frac_just_start_right_outer_prod   = num_just_start_right_outer_prod   / total_count
+                if new_avg_f1_outer_prod  > best_avg_f1_outer_prod :
+                    best_avg_f1_outer_prod  = new_avg_f1_outer_prod 
+
+ 
                 print("New avg f1: %f Best avg f1: %f." % (new_avg_f1, best_avg_f1))
                 json.dump(json_predictions, jsonFile)
                 jsonFile.close()
+ 
+                print("New avg f1 with outer prod: %f Best avg f1 with outer prod: %f." % (new_avg_f1_outer_prod, best_avg_f1_outer_prod))
+                json.dump(json_predictions_outer_prod, jsonFile_outer_prod)
+                jsonFile_outer_prod.close()
 
                 os.chmod(json_file_path, 0o777)
+                os.chmod(json_file_path_outer_prod, 0o777)
                 if new_em_score > best_em_score:
                     save_path = saver.save(sess, os.path.join(checkpoint_dir, "model{}".format(epoch)+partial_epoch+".ckpt"))
                     print("EM score improved from %f to %f. Model saved in path: %s" % (best_em_score, new_em_score, save_path,))
@@ -471,17 +525,28 @@ with chosen_session as sess:
                     fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". Model saved in path: " + str(save_path))
                     fileEM.write("\nFraction with just start prediction correct: {}".format(frac_just_start_right))
                     fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
+
+                    fileEM.write("\nNew EM score with outer prod:" + str(new_em_score_outer_prod) + " Best EM score with outer prod: " + str(best_em_score_outer_prod))
+                    fileEM.write("\nFraction with just start prediction correct with outer prod: {}".format(frac_just_start_right_outer_prod))
+                    fileEM.write("\nNew avg F1 with outer prod:" + str(new_avg_f1_outer_prod) + " Best avg f1 with outer prod: " + str(best_avg_f1_outer_prod) + ".")
+
                     fileEM.write("\nEpoch loss value:" + str(epoch_loss))
                     fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
                     fileEM.write("\n\n")
                     fileEM.flush()
                     best_em_score = new_em_score 
+                    best_em_score = new_em_score_outer_prod 
                 else:
                     print("No improvement in EM score, not saving")
                     fileEM.write("Epoch number:" + str(epoch) + partial_epoch)
                     fileEM.write("\n")
                     fileEM.write("\nNew EM score:" + str(new_em_score) + " Best EM score: " + str(best_em_score) + ". No improvement, model not saved.")
                     fileEM.write("\nNew avg F1:" + str(new_avg_f1) + " Best avg f1: " + str(best_avg_f1) + ".")
+ 
+                    fileEM.write("\nNew EM score with outer prod:" + str(new_em_score_outer_prod) + " Best EM score with outer prod: " + str(best_em_score_outer_prod))
+                    fileEM.write("\nFraction with just start prediction correct with outer prod: {}".format(frac_just_start_right_outer_prod))
+                    fileEM.write("\nNew avg F1 with outer prod:" + str(new_avg_f1_outer_prod) + " Best avg f1 with outer prod: " + str(best_avg_f1_outer_prod) + ".")
+
                     fileEM.write("\nEpoch loss value:" + str(epoch_loss))
                     fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
                     fileEM.write("\n\n")
