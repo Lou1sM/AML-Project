@@ -46,11 +46,14 @@ parser.add_argument("--padding_mask", default=True, action="store_true", help="W
 parser.add_argument("--converge", default=False, action="store_true", help="Whether to stop iteration upon convergence.")
 
 parser.add_argument("--bi_lstm_dropout", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
+parser.add_argument("--bi_lstm_encoding_dropout", default=False, action="store_true", help="Whether to use bi-LSTM dropout.")
 parser.add_argument("--doc_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the document lstm.")
-parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
-parser.add_argument("--q_tanh_dropout", default=False, action="store_true", help="Whether to use dropout after the question tanh.")
+parser.add_argument("--que_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
+parser.add_argument("--que_encoding_dropout", default=False, action="store_true", help="Whether to apply dropout to question encodings.")
+parser.add_argument("--doc_encoding_dropout", default=False, action="store_true", help="Whether to apply dropout to document encodings.")
+parser.add_argument("--squad2_vector", default=False, action="store_true", help="Whether to assume SQuAD 2 operation and add learnable vector.")
+parser.add_argument("--squad2_lstm", default=False, action="store_true", help="Whether to assume SQuAD 2 operation and add LSTM.")
 parser.add_argument("--exp_name", default="", help="Name of current experiment, in form 'a.b'")
-
 
 ARGS = parser.parse_args()
 
@@ -110,6 +113,11 @@ with tf.variable_scope("encoder"):
     #start_labels = tf.one_hot(a[:,0], 600)
     #end_labels = tf.one_hot(a[:,1], 600)
 
+    # if we are running for SQuAD 2, accommodate IMPOSSIBlE encoding
+    '''
+    if (ARGS.squad2_vector or ARGS.squad2_lstm):
+        max_doc_len += 1
+    '''
     # Create single nodes for labels, feed_dict version
     start_labels = tf.one_hot(starting_labels, max_doc_len)
     end_labels = tf.one_hot(ending_labels, max_doc_len)

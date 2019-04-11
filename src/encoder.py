@@ -26,6 +26,13 @@ def dynamic_lstm(embed, sequence_lengths, hyperparameters, use_dropout = True):
     lstm_outputs, final_state = tf.nn.dynamic_rnn(cell = cell, inputs = embed, sequence_length = sequence_lengths, initial_state = initial_state)
     return lstm_outputs, final_state
 
+def dynamic_lstm_with_hidden_size(embed, sequence_lengths, hyperparameters, hidden_size, use_dropout = True):
+    keep_prob = hyperparameters.keep_prob
+    batch_size = hyperparameters.batch_size
+    initial_state, cell = build_lstm_cell(hidden_size, keep_prob, batch_size, use_dropout)
+    embed = tf.cast(embed,tf.float32)
+    lstm_outputs, final_state = tf.nn.dynamic_rnn(cell = cell, inputs = embed, sequence_length = sequence_lengths, initial_state = initial_state)
+    return lstm_outputs, final_state
 
 def dynamic_bilstm(embed, sequence_lengths, hyperparameters):
     hidden_size = hyperparameters.hidden_size
@@ -55,13 +62,15 @@ def doc_que_encoder(document_columns, question_columns, documents_lengths, quest
     hidden_size = hyperparameters.hidden_size
     with tf.variable_scope('lstm', reuse = tf.AUTO_REUSE) as scope:
         document_enc, final_state_doc = dynamic_lstm(document_columns, documents_lengths, hyperparameters, use_dropout = hyperparameters.doc_lstm_dropout)
+        if hyperparameters.doc_encoding_dropout:
+            document_enc = tf.nn.dropout(document_enc, keep_prob=hyperparameters.keep_prob)
         # No dropout for when questions pass
-        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters, use_dropout = hyperparameters.q_lstm_dropout)
+        que_lstm_outputs, final_state_que = dynamic_lstm(question_columns, questions_lengths, hyperparameters, use_dropout = hyperparameters.que_lstm_dropout)
     with tf.variable_scope('tanhlayer') as scope:
         linear_model = tf.layers.Dense(units = hidden_size)
         question_enc = tf.math.tanh(linear_model(que_lstm_outputs))
         # add dropout after tanh
-        if hyperparameters.q_tanh_dropout:
+        if hyperparameters.que_encoding_dropout:
             question_enc = tf.nn.dropout(question_enc, keep_prob=hyperparameters.keep_prob)
  
     return document_enc, question_enc
@@ -111,6 +120,26 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     concat_2 = concat_2[:, :-1, :]  # remove sentinels
 
     BiLSTM_outputs, BiLSTM_final_fw_state, BiLSTM_final_bw_state = dynamic_bilstm(concat_2, documents_lengths, hyperparameters)
+
+    if hyperparameters.bi_lstm_encoding_dropout:
+        BiLSTM_outputs = tf.nn.dropout(BiLSTM_outputs, keep_prob=hyperparameters.keep_prob)
+
+    '''
+    if (hyperparameters.squad2_vector or hyperparameters.squad2_lstm):
+        with tf.name_scope("SQuAD_2"):
+            if (hyperparameters.squad2_vector):
+                impossible_encoding = bias_variable([2 * hyperparameters.hidden_size])
+                variable_summaries(impossible_encoding)
+                impossible_encoding = tf.expand_dims(tf.expand_dims(impossible_encoding, axis=0), axis=0)
+                impossible_encoding = tf.tile(impossible_encoding, [hyperparameters.batch_size, 1, 1])
+            elif (hyperparameters.squad2_lstm):
+                encodings, final_state = dynamic_lstm_with_hidden_size(concat_2, documents_lengths, hyperparameters,
+                                                                       2 * hyperparameters.hidden_size)
+                impossible_encoding = encodings[:, -1]
+                variable_summaries(impossible_encoding)
+                impossible_encoding = tf.expand_dims(impossible_encoding, axis=1)
+        BiLSTM_outputs = tf.concat([BiLSTM_outputs, impossible_encoding], axis=1)
+'''
     return L, BiLSTM_outputs
  
  
@@ -118,7 +147,8 @@ def encoder(document, question, documents_lengths, questions_lengths, hyperparam
     with tf.variable_scope("doc_que_encoder"):
         D, Q = doc_que_encoder(document, question, documents_lengths, questions_lengths, hyperparameters)
     with tf.variable_scope("coattention_encoder"):
-        return coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
+        L, encodings = coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
+        return L, encodings
 
 
 
