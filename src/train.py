@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 import highway_max_out
 import encoder
 import ciprian_data_prep_script
@@ -50,6 +51,8 @@ parser.add_argument("--doc_lstm_dropout", default=False, action="store_true", he
 parser.add_argument("--q_lstm_dropout", default=False, action="store_true", help="Whether to use dropout in the question lstm.")
 parser.add_argument("--q_tanh_dropout", default=False, action="store_true", help="Whether to use dropout after the question tanh.")
 parser.add_argument("--exp_name", default="", help="Name of current experiment, in form 'a.b'")
+parser.add_argument("--softmax_axis", default=1, help="Which axis to apply softmax on when computing attention weights")
+parser.add_argument("--coattention", default=1, help="Number of additional coattention contexts to use. A value of 1 means vanilla attention, no coattention. A value of 1 is what the authors use. A value of 2 is the proposed second coattention context, i.e. cocoattention")
 
 
 ARGS = parser.parse_args()
@@ -331,6 +334,11 @@ with chosen_session as sess:
     global_batch_num = 0
     new_avg_f1 = 0
     new_em_score = 0
+
+    best_em_score_outer_prod = 0.0
+    best_avg_f1_outer_prod  = 0.0
+    new_avg_f1_outer_prod  = 0
+    new_em_score_outer_prod  = 0
     for epoch in range(ARGS.num_epochs):
 
         print("\nEpoch:", epoch)
@@ -343,7 +351,7 @@ with chosen_session as sess:
         input_d_vecs, input_q_vecs, start_l, end_l, documents_lengths, questions_lengths = zip(*shuffling)
 
         prev_time = time.time()
-        epoch_loss = 0
+        partial_epoch_loss = 0
         for dp_index in range(0, dataset_length, batch_size):
             if dp_index + batch_size > dataset_length:
                 break
@@ -362,7 +370,8 @@ with chosen_session as sess:
                 run_validation = True
                 partial_epoch = ".0"
 
-            if run_validation:
+            if run_validation or ARGS.test:
+                partial_epoch_loss = 10*partial_epoch_loss/(int(3*dataset_length/batch_size))
                 json_predictions = {}
                 json_predictions['epoch'] = str(epoch) + partial_epoch
                 json_predictions['pred'] = []
@@ -381,7 +390,7 @@ with chosen_session as sess:
 
                 total_count = 0.1
                 exact_matches = 0.1
-                exact_matches1_outer_prod  = 0.1
+                exact_matches_outer_prod  = 0.1
                 num_just_start_right = 0.1
                 num_just_start_right_outer_prod = 0.1
                 running_f1 = 0.1
@@ -422,12 +431,12 @@ with chosen_session as sess:
                     #alphas_sftmx = np.divide(np.exp(alphas),np.sum(np.exp(alphas), axis=1)[:,np.newaxis])
                     #betas_sftmx = np.divide(np.exp(betas),np.sum(np.exp(betas), axis=1)[:,np.newaxis])
 
-                    alphas_exp = np.exp(alphas)
-                    betas_exp = np.exp(betas)
+                    alphas_exp = np.exp(alphas_val)
+                    betas_exp = np.exp(betas_val)
                     alphas_betas = np.matmul(np.expand_dims(alphas_exp, 2), np.expand_dims(betas_exp, 1))
                     alphas_betas = np.triu(alphas_betas)
-                    outer_prod_start_predict_validation = np.argmax(np.amax(alphas_betas, axis=2), axis=1)
-                    outer_prod_end_predict_validation = np.argmax(np.amax(alphas_betas, axis=1), axis=1)
+                    start_predict_validation_outer_prod = np.argmax(np.amax(alphas_betas, axis=2), axis=1)
+                    end_predict_validation_outer_prod= np.argmax(np.amax(alphas_betas, axis=1), axis=1)
 
                     start_correct_validation = start_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
                     end_correct_validation = end_l_validation[dp_index_validation: dp_index_validation + ARGS.batch_size]
@@ -483,7 +492,9 @@ with chosen_session as sess:
                         json_dp_outer_prod ["end"] = int(end_predict_validation_outer_prod [i])
                         json_predictions_outer_prod['pred'].append(json_dp_outer_prod )
 
-_
+
+                    # Reset loss for next partial epoch
+                    partial_epoch_loss = 0
 
                     del(doc)
                     del(que)
@@ -530,12 +541,12 @@ _
                     fileEM.write("\nFraction with just start prediction correct with outer prod: {}".format(frac_just_start_right_outer_prod))
                     fileEM.write("\nNew avg F1 with outer prod:" + str(new_avg_f1_outer_prod) + " Best avg f1 with outer prod: " + str(best_avg_f1_outer_prod) + ".")
 
-                    fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+                    fileEM.write("\nEpoch loss value:" + str(partial_epoch_loss))
                     fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
                     fileEM.write("\n\n")
                     fileEM.flush()
                     best_em_score = new_em_score 
-                    best_em_score = new_em_score_outer_prod 
+                    best_em_score_outer_prod  = new_em_score_outer_prod 
                 else:
                     print("No improvement in EM score, not saving")
                     fileEM.write("Epoch number:" + str(epoch) + partial_epoch)
@@ -547,7 +558,7 @@ _
                     fileEM.write("\nFraction with just start prediction correct with outer prod: {}".format(frac_just_start_right_outer_prod))
                     fileEM.write("\nNew avg F1 with outer prod:" + str(new_avg_f1_outer_prod) + " Best avg f1 with outer prod: " + str(best_avg_f1_outer_prod) + ".")
 
-                    fileEM.write("\nEpoch loss value:" + str(epoch_loss))
+                    fileEM.write("\nEpoch loss value:" + str(partial_epoch_loss))
                     fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
                     fileEM.write("\n\n")
                     fileEM.flush()
@@ -581,7 +592,7 @@ _
                 writer.add_summary(summary_val, global_batch_num)
                 #loss_val = round(loss_val, 5)
                 print("\tBatch: {}\tloss: {}\t Time per data point: {}".format((dp_index//batch_size)+1,loss_val, utils.time_format(dp_time)))
-                epoch_loss += loss_val
+                partial_epoch_loss += loss_val
             else:
                 sess.run([train_step], feed_dict=feed_dict)
 
@@ -595,7 +606,6 @@ _
             if ARGS.test:
                 break
 
-        epoch_loss = 10*epoch_loss/(int(dataset_length/batch_size))
  
 train_end_time = time.time()
 
