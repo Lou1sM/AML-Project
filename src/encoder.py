@@ -108,13 +108,22 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
         min_float_at_padding = tf.multiply(negative_padding_mask, tf.cast(-0.5*tf.float32.min, tf.float32))
         L = tf.add(L, min_float_at_padding)
 
-    A_Q = tf.nn.softmax(L, axis=1, name="softmaxed_L")
-    A_D = tf.nn.softmax(tf.transpose(L, perm = [0,2,1]), axis=1, name="softmaxed_L_transpose")
+    A_Q = tf.nn.softmax(L, axis=int(hyperparameters.softmax_axis), name="softmaxed_L")
+    A_D = tf.nn.softmax(tf.transpose(L, perm = [0,2,1]), axis=int(hyperparameters.softmax_axis), name="softmaxed_L_transpose")
     C_Q = tf.matmul(tf.transpose(D, perm = [0,2,1]), A_Q)
 
+    C_D_2 = tf.matmul(C_Q, A_D)
+    C_Q_2 = tf.matmul(C_D_2, A_Q)
+    #print('C_D_2', C_D_2.shape)
+    #print('C_Q_2', C_Q_2.shape)
     concat_1 = tf.concat([tf.transpose(Q, perm = [0,2,1]), C_Q], 1)
-    C_D = tf.matmul(concat_1, A_D)
-
+    concat_1_1 = tf.concat([tf.transpose(Q, perm=[0,2,1]), C_Q, C_Q_2], 1)
+    if int(hyperparameters.coattention) == 0:
+        C_D = tf.matmul(tf.transpose(Q, perm=[0,2,1]), A_D)
+    elif int(hyperparameters.coattention)== 1:
+        C_D = tf.matmul(concat_1, A_D)
+    elif int(hyperparameters.coattention)== 2:
+        C_D = tf.matmul(concat_1_1, A_D)
     concat_2 = tf.concat([tf.transpose(D, perm = [0,2,1]), C_D], 1)
     concat_2 = tf.transpose(concat_2, perm = [0,2,1])
     concat_2 = concat_2[:, :-1, :]  # remove sentinels
