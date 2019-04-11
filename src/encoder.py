@@ -142,7 +142,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
                 impossible_encoding = tf.tile(impossible_encoding, [hyperparameters.batch_size, 1, 1])
             elif (hyperparameters.squad2_lstm):
                 encodings, final_state = dynamic_lstm_with_hidden_size(concat_2, documents_lengths, hyperparameters,
-                                                                       2 * hyperparameters.hidden_size)
+                                                                       2 * hyperparameters.hidden_size, False)
                 impossible_encoding = encodings[:, -1]
                 variable_summaries(impossible_encoding)
                 impossible_encoding = tf.expand_dims(impossible_encoding, axis=1)

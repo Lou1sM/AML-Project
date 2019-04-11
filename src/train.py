@@ -334,10 +334,10 @@ with chosen_session as sess:
     print("Graph-build time: ", utils.time_format(train_start_time - start_time))
 
     dataset_length = len(input_d_vecs)
-    num_batchs = dataset_length // ARGS.batch_size 
+    num_batches = dataset_length // ARGS.batch_size
 
     dataset_length_validation = len(input_d_vecs_validation)
-    num_batchs_validation = dataset_length_validation // ARGS.batch_size
+    num_batches_validation = dataset_length_validation // ARGS.batch_size
 
     best_em_score = 0.0
     best_avg_f1 = 0.0
@@ -372,11 +372,11 @@ with chosen_session as sess:
                 partial_epoch = ".2"
                 run_validation = True
 
-            if dp_index//batch_size == 2*num_batchs //3:
+            if dp_index//batch_size == 2*num_batches //3:
                 run_validation = True
                 partial_epoch = ".1"
 
-            if dp_index//batch_size == num_batchs //3:
+            if dp_index//batch_size == num_batches //3:
                 run_validation = True
                 partial_epoch = ".0"
 
