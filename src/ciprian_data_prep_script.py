@@ -1,10 +1,16 @@
 import numpy as np
 
-def get_data(typeData):
-    if(typeData == "train"):
-        filename = 'data/padded_train_data_shuffled.npy'
-    elif (typeData == "test"):
-        filename = 'data/padded_test_data_shuffled.npy'
+def get_data(typeData, squad2):
+    if not squad2:
+        if (typeData == "train"):
+            filename = 'data/padded_train_data_shuffled.npy'
+        elif (typeData == "test"):
+            filename = 'data/padded_test_data_shuffled.npy'
+    else:
+        if (typeData == "train"):
+            filename = 'data/padded_train_data_shuffled_squad2.npy'
+        elif (typeData == "test"):
+            filename = 'data/padded_test_data_shuffled_squad2.npy'
 
     try:
         data_array = np.load(filename)

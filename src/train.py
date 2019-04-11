@@ -72,8 +72,8 @@ if ARGS.test:
     ARGS.num_epochs=3
 
 with tf.variable_scope("data_prep"):
-    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = ciprian_data_prep_script.get_data("train")
-    input_d_vecs_validation, input_q_vecs_validation, ground_truth_labels_validation, documents_lengths_validation, questions_lengths_validation, questions_ids_validation, all_answers_validation = ciprian_data_prep_script.get_data("test")
+    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = ciprian_data_prep_script.get_data("train", ARGS.squad2_vector or ARGS.squad2_lstm)
+    input_d_vecs_validation, input_q_vecs_validation, ground_truth_labels_validation, documents_lengths_validation, questions_lengths_validation, questions_ids_validation, all_answers_validation = ciprian_data_prep_script.get_data("test", ARGS.squad2_vector or ARGS.squad2_lstm)
     #print("In train.py: get_data finished.")
 
     start_l = list(map(lambda x: x[0], ground_truth_labels))
@@ -117,19 +117,21 @@ with tf.variable_scope("encoder"):
     #end_labels = tf.one_hot(a[:,1], 600)
 
     # if we are running for SQuAD 2, accommodate IMPOSSIBlE encoding
-    '''
+
     if (ARGS.squad2_vector or ARGS.squad2_lstm):
-        max_doc_len += 1
-    '''
+        encoding_length = tf.add(max_doc_len, 1)
+    else:
+        encoding_length = max_doc_len
+
     # Create single nodes for labels, feed_dict version
-    start_labels = tf.one_hot(starting_labels, max_doc_len)
-    end_labels = tf.one_hot(ending_labels, max_doc_len)
+    start_labels = tf.one_hot(starting_labels, encoding_length)
+    end_labels = tf.one_hot(ending_labels, encoding_length)
 
 with tf.variable_scope("decoder"):
     # Calculate padding mask
     if ARGS.padding_mask:
-        after_padding_mark = tf.one_hot(doc_l, max_doc_len)
-        padding_mask = tf.math.cumsum(after_padding_mark, axis=1)
+        after_padding_mask = tf.one_hot(doc_l, encoding_length)
+        padding_mask = tf.math.cumsum(after_padding_mask, axis=1)
         min_float_at_padding = tf.multiply(padding_mask, tf.cast(0.5*tf.float32.min, tf.float32))
 
     # Initialize variables if convergence is enabled

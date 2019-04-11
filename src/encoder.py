@@ -133,7 +133,6 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
     if hyperparameters.bi_lstm_encoding_dropout:
         BiLSTM_outputs = tf.nn.dropout(BiLSTM_outputs, keep_prob=hyperparameters.keep_prob)
 
-    '''
     if (hyperparameters.squad2_vector or hyperparameters.squad2_lstm):
         with tf.name_scope("SQuAD_2"):
             if (hyperparameters.squad2_vector):
@@ -148,7 +147,7 @@ def coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparamet
                 variable_summaries(impossible_encoding)
                 impossible_encoding = tf.expand_dims(impossible_encoding, axis=1)
         BiLSTM_outputs = tf.concat([BiLSTM_outputs, impossible_encoding], axis=1)
-'''
+
     return L, BiLSTM_outputs
  
  
