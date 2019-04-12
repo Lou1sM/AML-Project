@@ -104,7 +104,7 @@ with tf.variable_scope("parameters"):
     tf.summary.scalar('learning_rate', tf.constant(ARGS.learning_rate))
 
 with tf.variable_scope("encoder"):
-    L, encoded = encoder.encoder(
+    D, Q, encoded = encoder.encoder(
         document=d,
         question=q,
         documents_lengths=doc_l,
@@ -120,8 +120,10 @@ with tf.variable_scope("encoder"):
 
     if (ARGS.squad2_vector or ARGS.squad2_lstm):
         encoding_length = tf.add(max_doc_len, 1)
+        corrected_document_lengths = tf.add(doc_l, 1)
     else:
         encoding_length = max_doc_len
+        corrected_document_lengths = doc_l
 
     # Create single nodes for labels, feed_dict version
     start_labels = tf.one_hot(starting_labels, encoding_length)
@@ -130,7 +132,7 @@ with tf.variable_scope("encoder"):
 with tf.variable_scope("decoder"):
     # Calculate padding mask
     if ARGS.padding_mask:
-        after_padding_mask = tf.one_hot(doc_l, encoding_length)
+        after_padding_mask = tf.one_hot(corrected_document_lengths, encoding_length)
         padding_mask = tf.math.cumsum(after_padding_mask, axis=1)
         min_float_at_padding = tf.multiply(padding_mask, tf.cast(0.5*tf.float32.min, tf.float32))
 
@@ -596,7 +598,9 @@ with chosen_session as sess:
                 }
 
             if (dp_index//batch_size + 1)% 10 == 0: #or batch_size == dataset_length-batch_num:
-                _, loss_val, summary_val = sess.run([train_step, mean_loss, merged], feed_dict=feed_dict)
+                _, loss_val, summary_val, ev, dv, qv, av, bv = sess.run([train_step, mean_loss, merged, encoded, D, Q, alphas, betas], feed_dict=feed_dict)
+                print(ev.shape, dv.shape, qv.shape)
+                print(av.shape, bv.shape)
                 dp_time = (time.time() - prev_time)/(10.0*batch_size)
                 prev_time = time.time()
                 writer.add_summary(summary_val, global_batch_num)

@@ -1,6 +1,6 @@
 import ciprian_data_prep_script
 
-input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, question_ids, _ = ciprian_data_prep_script.get_data("train")
+input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, question_ids, _ = ciprian_data_prep_script.get_data("train", False)
 
 '''
 print(input_d_vecs[0])

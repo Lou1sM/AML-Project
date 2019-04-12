@@ -156,7 +156,7 @@ def encoder(document, question, documents_lengths, questions_lengths, hyperparam
         D, Q = doc_que_encoder(document, question, documents_lengths, questions_lengths, hyperparameters)
     with tf.variable_scope("coattention_encoder"):
         L, encodings = coattention_encoder(D, Q, documents_lengths, questions_lengths, hyperparameters)
-        return L, encodings
+        return D, Q, encodings
 
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 
 def get_data(typeData, squad2):
-    if not squad2:
+    if True:#not squad2:
         if (typeData == "train"):
             filename = 'data/padded_train_data_shuffled.npy'
         elif (typeData == "test"):
