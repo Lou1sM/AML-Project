@@ -503,9 +503,6 @@ with chosen_session as sess:
                         json_predictions_outer_prod['pred'].append(json_dp_outer_prod )
 
 
-                    # Reset loss for next partial epoch
-                    partial_epoch_loss = 0
-
                     del(doc)
                     del(que)
                     del(doc_len)
@@ -572,6 +569,10 @@ with chosen_session as sess:
                     fileEM.write("\nEpoch validation loss: %f" % total_epoch_val_loss)
                     fileEM.write("\n\n")
                     fileEM.flush()
+
+                # Reset loss for next partial epoch
+                partial_epoch_loss = 0
+
 
             doc = list.copy(list(input_d_vecs[dp_index:dp_index + batch_size]))
             que = list.copy(list(input_q_vecs[dp_index:dp_index + batch_size]))
