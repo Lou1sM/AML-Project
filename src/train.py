@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import highway_max_out
 import encoder
-import ciprian_data_prep_script
+import anonymous2_data_prep_script
 import tfrecord_converter
 import argparse
 import time
@@ -72,8 +72,8 @@ if ARGS.test:
     ARGS.num_epochs=3
 
 with tf.variable_scope("data_prep"):
-    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = ciprian_data_prep_script.get_data("train", ARGS.squad2_vector or ARGS.squad2_lstm)
-    input_d_vecs_validation, input_q_vecs_validation, ground_truth_labels_validation, documents_lengths_validation, questions_lengths_validation, questions_ids_validation, all_answers_validation = ciprian_data_prep_script.get_data("test", ARGS.squad2_vector or ARGS.squad2_lstm)
+    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths, _, _ = anonymous2_data_prep_script.get_data("train", ARGS.squad2_vector or ARGS.squad2_lstm)
+    input_d_vecs_validation, input_q_vecs_validation, ground_truth_labels_validation, documents_lengths_validation, questions_lengths_validation, questions_ids_validation, all_answers_validation = anonymous2_data_prep_script.get_data("test", ARGS.squad2_vector or ARGS.squad2_lstm)
     #print("In train.py: get_data finished.")
 
     start_l = list(map(lambda x: x[0], ground_truth_labels))

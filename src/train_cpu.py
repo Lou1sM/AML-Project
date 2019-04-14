@@ -1,7 +1,7 @@
 import tensorflow as tf
 import highway_max_out
 import encoder
-import ciprian_data_prep_script
+import anonymous2_data_prep_script
 import tfrecord_converter
 import argparse
 import time
@@ -35,7 +35,7 @@ ARGS = parser.parse_args()
 
 """
 with tf.name_scope("data_prep"):
-    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = ciprian_data_prep_script.get_data()
+    input_d_vecs, input_q_vecs, ground_truth_labels, documents_lengths, questions_lengths = anonymous2_data_prep_script.get_data()
     print("In train.py: get_data finished.")
     start_l = list(map(lambda x: x[0], ground_truth_labels))
     end_l = list(map(lambda x: x[1], ground_truth_labels))

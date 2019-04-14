@@ -57,12 +57,12 @@ def read_tfrecords(file_names,
 
 
 if __name__ == "__main__":
-    #data = np.load('/home/louis/datasets/moving_mnist/mnist_test_seq.npy')
-    #data = np.load('/home/louis/AML-Project/padded_train_data1.0.npz')
+    #data = np.load('/home/anonymous/datasets/moving_mnist/mnist_test_seq.npy')
+    #data = np.load('/home/anonymous/AML-Project/padded_train_data1.0.npz')
     
     """
     data = data.f.arr_0
-    #data = np.load('/home/louis/datasets/moving_mnist/small1.npy')
+    #data = np.load('/home/anonymous/datasets/moving_mnist/small1.npy')
     #print(data.shape)
     D = data[0][0]
     Q = data[0][1]
@@ -92,7 +92,7 @@ if __name__ == "__main__":
         sliced_data = data[:,100*i:100*(i+1),:,:]
         print(sliced_data.flatten().shape)
         array_to_tfrecords(sliced_data, "file{}.tfrecord".format(i+1))
-    #filelist = ["/home/louis/datasets/moving_mnist/tfrecords/file{}.tfrecord".format(i) for i in range(1,101)]
+    #filelist = ["/home/anonymous/datasets/moving_mnist/tfrecords/file{}.tfrecord".format(i) for i in range(1,101)]
     #recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(8192000,))
     #recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, img_shapes=(1225600,))
     recovered = read_tfrecords(file_names=("test.tfrecord"), buffer_size=100, d_shape=D.shape, q_shape=Q.shape, a_shape=A.shape, l=len(DL))
