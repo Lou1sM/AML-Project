@@ -7,9 +7,16 @@ import nltk
 import pickle 
 import random
 
-filename = 'data/embedding/glove.6B/glove.6B.300d.txt'
-train_json_filename = 'data/squad/train-v1.1.json'
-test_json_filename = 'data/squad/dev-v1.1.json'
+filename = 'data/embedding/glove.840B.300d.txt'
+version = 2
+
+if(version == 1):
+	train_json_filename = 'data/squad/train-v1.1.json'
+	test_json_filename = 'data/squad/dev-v1.1.json'
+elif(version == 2):
+	train_json_filename = 'data/squad/train-v2.0.json'
+	test_json_filename = 'data/squad/dev-v2.0.json'
+
 time1 = time.time()
 gloveDimension = 300
 q_length = 60
@@ -52,40 +59,48 @@ def process_squad(x, multiple_answers):
 	for i in range(len(answers)):
 		if(multiple_answers):
 			intervals = []
-			for j in range(len(answers[i])):
-				answerin = answers[i][j]
+			if(version == 2 and qas[i]["is_impossible"] == True):
+				text_len = len(nltk.word_tokenize(x['context']))
+				intervals.append([text_len, text_len])
+			else:
+				for j in range(len(answers[i])):
+					answerin = answers[i][j]
+					text_answer = answerin['text']
+					len_answer = len(nltk.word_tokenize(text_answer))
+					answer_character_position = answerin['answer_start']
+					text = x['context'][:answer_character_position]
+					# if(answer_character_position>0):
+					# 	positions.append(answer_character_position-1)
+					answer = len(nltk.word_tokenize(text))
+					intervals.append([answer, answer+len_answer-1])
+					#positions.append(answer_character_position+len(answerin['text']))
+			answer_interval.append(intervals)
+		else:
+			if(version == 2 and qas[i]["is_impossible"] == True):
+				text_len = len(nltk.word_tokenize(x['context']))
+				answer_interval.append([text_len, text_len])
+			else:
+				answerin = answers[i][0]
 				text_answer = answerin['text']
 				len_answer = len(nltk.word_tokenize(text_answer))
 				answer_character_position = answerin['answer_start']
 				text = x['context'][:answer_character_position]
+				if(not (answer_character_position>0 and text[answer_character_position-1]!=" " 
+						and text[answer_character_position-1]!="(" 
+						and text[answer_character_position-1]!="$" 
+						and text[answer_character_position-1]!='"'
+						and text[answer_character_position-1]!='“'
+						and text[answer_character_position-1]!="'"
+						and text[answer_character_position-1]!="⟨"
+						and text[answer_character_position-1]!="[")):
+				# text = text.replace("-", " - ")
+				# text = text.replace("–", " – ")
+				# text = text.replace(chr(8212)," "+chr(8212)+" ")
 				# if(answer_character_position>0):
 				# 	positions.append(answer_character_position-1)
-				answer = len(nltk.word_tokenize(text))
-				intervals.append([answer, answer+len_answer-1])
+					answer = len(nltk.word_tokenize(text))
+					answer_interval.append([answer, answer+len_answer-1])
 				#positions.append(answer_character_position+len(answerin['text']))
-			answer_interval.append(intervals)
-		else:		
-			answerin = answers[i][0]
-			text_answer = answerin['text']
-			len_answer = len(nltk.word_tokenize(text_answer))
-			answer_character_position = answerin['answer_start']
-			text = x['context'][:answer_character_position]
-			if(not (answer_character_position>0 and text[answer_character_position-1]!=" " 
-					and text[answer_character_position-1]!="(" 
-					and text[answer_character_position-1]!="$" 
-					and text[answer_character_position-1]!='"'
-					and text[answer_character_position-1]!='“'
-					and text[answer_character_position-1]!="'"
-					and text[answer_character_position-1]!="⟨"
-					and text[answer_character_position-1]!="[")):
-			# text = text.replace("-", " - ")
-			# text = text.replace("–", " – ")
-			# text = text.replace(chr(8212)," "+chr(8212)+" ")
-			# if(answer_character_position>0):
-			# 	positions.append(answer_character_position-1)
-				answer = len(nltk.word_tokenize(text))
-				answer_interval.append([answer, answer+len_answer-1])
-			#positions.append(answer_character_position+len(answerin['text']))
 
 	# positions = list(set(positions))
 	# positions.sort()
@@ -157,11 +172,11 @@ def save_embeddings(type_of_embeddings):
 			ids.append(q_id)
 
 		print("HERE")
-		for i in range(len(documents)):
-			if(answers[i][1]>=lengths_doc[i]):
-				print(i)
+		# for i in range(len(documents)):
+		# 	if(answers[i][1]>=lengths_doc[i]):
+		# 		print(i)
 		output_data_array = [[documents, questions, answers, ids], [lengths_doc, lengths_que]]
-		np.save('data/'+type_of_embeddings+'_shuffled', output_data_array)
+		np.save('data/'+type_of_embeddings+'_shuffled_version'+str(version), output_data_array)
 	else:
 		documents = list(map (lambda x: np.array(x[0]), data_array))
 		questions = list(map (lambda x: np.array(x[1]), data_array))
